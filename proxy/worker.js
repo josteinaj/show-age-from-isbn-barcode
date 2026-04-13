@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker: CORS-proxy for Nasjonalbibliotekets SRU-API
+ * Cloudflare Worker: CORS-proxy for bokoppslag.
  *
  * Oppsett (CLI, gratis):
  *   1. npm install
@@ -7,10 +7,16 @@
  *   3. npm run proxy:deploy
  *   4. Kopier workers.dev-URL-en og sett den i config.js
  *
- * Sikkerhet: Worker-en aksepterer kun forespørsler mot sru.aja.bs.no.
+ * Sikkerhet: Worker-en aksepterer kun forespørsler mot tillatte hoster.
  */
 
-const ALLOWED_HOST = 'sru.aja.bs.no';
+const ALLOWED_HOSTS = new Set([
+  'sru.aja.bs.no',
+  'bokelskere.no',
+  'www.bokelskere.no',
+  'deichman.no',
+  'www.deichman.no',
+]);
 
 export default {
   async fetch(request) {
@@ -32,18 +38,21 @@ export default {
       return corsResponse(new Response('Ugyldig URL', { status: 400 }));
     }
 
-    if (targetUrl.hostname !== ALLOWED_HOST) {
+    if (!ALLOWED_HOSTS.has(targetUrl.hostname)) {
       return corsResponse(new Response('Ikke tillatt host', { status: 403 }));
     }
 
     const upstream = await fetch(targetUrl.toString(), {
-      headers: { 'User-Agent': 'nb-isbn-proxy/1.0' },
+      headers: {
+        'User-Agent': 'nb-isbn-proxy/1.0',
+        'Accept': 'text/html,application/xml,text/xml,*/*',
+      },
     });
 
     const body = await upstream.arrayBuffer();
     const response = new Response(body, {
       status: upstream.status,
-      headers: { 'Content-Type': upstream.headers.get('Content-Type') || 'text/xml' },
+      headers: { 'Content-Type': upstream.headers.get('Content-Type') || 'text/plain; charset=utf-8' },
     });
 
     return corsResponse(response);
