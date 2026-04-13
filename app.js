@@ -273,11 +273,13 @@ async function initScanner() {
     fps: 10,
     aspectRatio: 4 / 3,
     disableFlip: true,
-    // Keep a centered scanning area for faster and more stable barcode detection.
+    // 1D barcodes are long and narrow; use a wide scan area instead of square QR box.
     qrbox: (viewfinderWidth, viewfinderHeight) => {
-      const side = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8);
-      return { width: side, height: side };
+      const width = Math.floor(viewfinderWidth * 0.92);
+      const height = Math.floor(viewfinderHeight * 0.30);
+      return { width, height };
     },
+    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
     formatsToSupport: formats,
     experimentalFeatures: {
       useBarCodeDetectorIfSupported: true,

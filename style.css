@@ -59,6 +59,17 @@ h1 {
   object-fit: cover;
 }
 
+#reader video {
+  background: #000;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* On some iOS setups canvas can appear as a white overlay over video. */
+#reader canvas {
+  display: none !important;
+}
+
 /* Status */
 .status {
   text-align: center;
@@ -160,6 +171,7 @@ h1 {
 
 .btn:active {
   background: #3730a3;
+}
 
 /* Start-knapp */
 #start-container {
@@ -174,5 +186,4 @@ h1 {
   font-size: 1.1rem;
   padding: 0.9rem 2.5rem;
   border-radius: 50px;
-}
 }
