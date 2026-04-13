@@ -1,6 +1,6 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
-const CAMERA_TEST_MODE = true;
+const CAMERA_TEST_MODE = false;
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
 const SRU_BASE = 'https://sru.aja.bs.no/mlnb';
@@ -178,6 +178,9 @@ let lastCode = '';
 let lastCodeTime = 0;
 let isStarting = false;
 let cameraStream = null;
+let cameraVideoEl = null;
+let detector = null;
+let detectorTimer = null;
 
 function isFirefoxOniPhone() {
   const ua = navigator.userAgent || '';
@@ -205,33 +208,47 @@ function formatCameraError(err) {
   return 'Kunne ikke starte kamera. Gi appen kameratilgang og prøv igjen.';
 }
 
-async function startScannerWithFallback(scannerConfig) {
-  try {
-    await scanner.start(
-      { facingMode: { ideal: 'environment' } },
-      scannerConfig,
-      onDetected,
-      () => { /* ignorerer kontinuerlige scannerrors */ }
-    );
+function stopBarcodeDetectionLoop() {
+  if (detectorTimer) {
+    clearTimeout(detectorTimer);
+    detectorTimer = null;
+  }
+}
+
+async function startBarcodeDetection() {
+  if (CAMERA_TEST_MODE) return;
+  if (!cameraVideoEl) return;
+
+  if (!('BarcodeDetector' in window)) {
+    setStatus('Kamera aktivt, men strekkodelesing støttes ikke i denne nettleseren ennå.', 'error');
     return;
-  } catch (firstErr) {
-    console.warn('Primær kamerastart feilet, prøver fallback:', firstErr);
   }
 
-  const cameras = await Html5Qrcode.getCameras();
-  if (!cameras || cameras.length === 0) {
-    throw new Error('NO_CAMERAS_FOUND');
-  }
+  const formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+  detector = new window.BarcodeDetector({ formats });
 
-  const backCamera = cameras.find(c => /back|rear|environment|traseira|arriere|hinten/i.test(c.label))
-    || cameras[cameras.length - 1];
+  const loop = async () => {
+    if (paused || !cameraVideoEl || cameraVideoEl.readyState < 2) {
+      detectorTimer = setTimeout(loop, 200);
+      return;
+    }
 
-  await scanner.start(
-    backCamera.id,
-    scannerConfig,
-    onDetected,
-    () => { /* ignorerer kontinuerlige scannerrors */ }
-  );
+    try {
+      const results = await detector.detect(cameraVideoEl);
+      if (results && results.length > 0) {
+        const rawValue = results[0].rawValue || '';
+        if (rawValue) {
+          await onDetected(rawValue);
+        }
+      }
+    } catch (err) {
+      console.warn('Strekkodedeteksjon feilet for en frame:', err);
+    }
+
+    detectorTimer = setTimeout(loop, 180);
+  };
+
+  loop();
 }
 
 function normalizeScannedCode(raw) {
@@ -252,47 +269,20 @@ async function initScanner() {
 
   readerEl.hidden = false;
   startBtnEl.disabled = true;
-  scanner = new Html5Qrcode('reader');
-
-  const formats = [
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E,
-    Html5QrcodeSupportedFormats.CODE_128,
-  ];
-
-  const scannerConfig = {
-    fps: 10,
-    aspectRatio: 4 / 3,
-    disableFlip: true,
-    // 1D barcodes are long and narrow; use a wide scan area instead of square QR box.
-    qrbox: (viewfinderWidth, viewfinderHeight) => {
-      const width = Math.floor(viewfinderWidth * 0.92);
-      const height = Math.floor(viewfinderHeight * 0.30);
-      return { width, height };
-    },
-    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-    formatsToSupport: formats,
-    // iOS Safari can be unstable with experimental barcode detector path.
-    experimentalFeatures: {
-      useBarCodeDetectorIfSupported: false,
-    },
-  };
+  stopBarcodeDetectionLoop();
 
   setStatus('Starter kamera…');
 
   try {
-    if (CAMERA_TEST_MODE) {
-      await startCameraPreview();
-      startContainerEl.hidden = true;
-      setStatus('Kamera aktivt (testmodus uten strekkodeleser)', 'scanning');
-      return;
-    }
-
-    await startScannerWithFallback(scannerConfig);
+    await startCameraPreview();
     startContainerEl.hidden = true;
-    setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
+
+    if (CAMERA_TEST_MODE) {
+      setStatus('Kamera aktivt (testmodus uten strekkodeleser)', 'scanning');
+    } else {
+      setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
+      await startBarcodeDetection();
+    }
   } catch (err) {
     console.error('Kamerafeil:', err);
     readerEl.hidden = true;
@@ -338,6 +328,7 @@ async function startCameraPreview() {
 
   videoEl.srcObject = stream;
   await videoEl.play();
+  cameraVideoEl = videoEl;
 }
 
 async function onDetected(code) {
@@ -391,7 +382,6 @@ function resume() {
   hideResult();
   lastCode = '';
   paused = false;
-  try { scanner.resume(); } catch (_) {}
   setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
 }
 
