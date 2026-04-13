@@ -1,8 +1,8 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_COMMIT = '381e905';
-const BUILD_TIME = '13. april 2026 22:45';
+const BUILD_COMMIT = 'ea9dcc3';
+const BUILD_TIME = '13. april 2026 22:55';
 const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
@@ -18,9 +18,24 @@ function cleanIsbn(raw) {
  * Konverter ISBN-10 til ISBN-13.
  * Ta de 9 første sifrene, prepend "978", beregn nytt sjekksiffer.
  */
+function isValidIsbn10(isbn10) {
+  const digits = isbn10.replace(/[^0-9Xx]/gi, '').toUpperCase();
+  if (digits.length !== 10) return false;
+  if (!/^\d{9}[0-9X]$/.test(digits)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(digits[i], 10) * (10 - i);
+  }
+  const checkChar = digits[9];
+  const checkDigit = checkChar === 'X' ? 10 : parseInt(checkChar, 10);
+  return (sum + checkDigit) % 11 === 0;
+}
+
 function isbn10ToIsbn13(isbn10) {
   const digits = isbn10.replace(/[^0-9Xx]/gi, '');
   if (digits.length !== 10) return null;
+  if (!isValidIsbn10(digits)) return null;
 
   const base = '978' + digits.slice(0, 9);
   let sum = 0;
@@ -81,9 +96,13 @@ function extractIsbnCandidatesFromText(text) {
 
   for (const match of matches) {
     const cleaned = cleanIsbn(match);
-    if (cleaned.length === 10 || cleaned.length === 13) {
-      isbns.add(cleaned);
-      if (cleaned.length === 10) {
+    if (cleaned.length === 13) {
+      if (cleaned.startsWith('978') || cleaned.startsWith('979')) {
+        isbns.add(cleaned);
+      }
+    } else if (cleaned.length === 10) {
+      if (isValidIsbn10(cleaned)) {
+        isbns.add(cleaned);
         const as13 = isbn10ToIsbn13(cleaned);
         if (as13) isbns.add(as13);
       }
@@ -164,6 +183,7 @@ async function fetchBokelskereData(isbn) {
     title: primaryTitle,
     editionCount: editionUrls.length,
     isbnCandidates: [...isbnCandidates],
+    newIsbnCount: Math.max(0, isbnCandidates.size - 1),
   };
 }
 
@@ -241,7 +261,9 @@ async function lookupBook(rawIsbn) {
   }
 
   if (bokelskereData && bokelskereData.resultCount > 0) {
-    events.push(`Fant ${bokelskereData.editionCount} andre utgaver med andre ISBN`);
+    if (bokelskereData.newIsbnCount > 0) {
+      events.push(`Fant ${bokelskereData.newIsbnCount} andre utgaver med andre ISBN`);
+    }
 
     const candidateIsbns = bokelskereData.isbnCandidates
       .filter(candidate => !triedIsbns.has(candidate));
@@ -263,7 +285,7 @@ async function lookupBook(rawIsbn) {
 
     const deichman = await fetchDeichmanSearchData(bokelskereData.title);
     if (deichman) {
-      const linkHtml = createEventLink('Søker på deichman.no', deichman.searchUrl, true);
+      const linkHtml = createEventLink('Søker på deichman.no', deichman.searchUrl);
       events.push(`${linkHtml}: ${deichman.resultCount} treff`);
     }
 
@@ -696,9 +718,12 @@ async function onDetected(code) {
     const { book, sruUrl, events, source } = result;
     
     if (book) {
-      const status = source === 'bokelskere-title-fallback'
-        ? 'Funnet via fallback'
-        : 'Funnet';
+      let status = 'Funnet';
+      if (source === 'bokelskere-title-fallback') {
+        status = book.ageGroups && book.ageGroups.length > 0
+          ? 'Funnet via fallback'
+          : 'Funnet via fallback (ingen alder)';
+      }
       addToScanHistory(normalizedCode, sruUrl, status, events || []);
       statusEl.hidden = true;
       showResult(book);
