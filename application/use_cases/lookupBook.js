@@ -1,4 +1,4 @@
-import { cleanIsbn, isbn10ToIsbn13 } from '../../infrastructure/isbn/isbn.js';
+import { cleanIsbn, extractIsbnCandidatesFromText, isbn10ToIsbn13 } from '../../infrastructure/isbn/isbn.js';
 import { buildSruUrl, parseMarc } from '../../infrastructure/nb_sru/sruClient.js';
 import { fetchBokelskereData, buildBokelskereSearchUrl } from '../../infrastructure/bokelskere/bokelskereClient.js';
 import { fetchDeichmanSearchData } from '../../infrastructure/deichman/deichmanClient.js';
@@ -105,8 +105,24 @@ export async function lookupBook(rawIsbn, deps) {
   }
 
   if (bokelskereData && bokelskereData.resultCount > 0) {
-    for (const step of bokelskereData.pageSteps || []) {
-      for (const candidate of step.newIsbns || []) {
+    const seenBokelskereIsbns = new Set([isbn]);
+
+    for (const pageUrl of bokelskereData.pageUrls || []) {
+      const isPrimaryPage = pageUrl === bokelskereData.primaryUrl;
+      let pageHtml = '';
+      if (isPrimaryPage && bokelskereData.primaryHtml) {
+        pageHtml = bokelskereData.primaryHtml;
+      } else {
+        logGet(pageUrl);
+        pageHtml = await fetchTextSerial(pageUrl);
+      }
+
+      if (isPrimaryPage) continue;
+
+      const pageCandidates = extractIsbnCandidatesFromText(pageHtml);
+      for (const candidate of pageCandidates) {
+        if (seenBokelskereIsbns.has(candidate)) continue;
+        seenBokelskereIsbns.add(candidate);
         if (triedIsbns.has(candidate)) continue;
         events.push(`Bokelskere: Fant nytt ISBN - ${candidate}`);
         onProgress('Søker på andre ISBN-utgaver fra Bokelskere…');

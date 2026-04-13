@@ -39,15 +39,49 @@ function extractTitle(html, { parseHtml, findAll, getTextContent }) {
   return bookH1 ? getTextContent(bookH1) : '';
 }
 
-function extractAlternativeEditionUrls(html, baseUrl) {
-  const sectionMatch = html.match(/<h3[^>]*id=["']alternative-utgaver["'][^>]*>[\s\S]*?<\/ul>/i);
-  if (!sectionMatch) return [];
+function nextElementSibling(node) {
+  let cur = node ? node.nextSibling : null;
+  while (cur && cur.nodeType !== 1) cur = cur.nextSibling;
+  return cur;
+}
 
-  const hrefMatches = [...sectionMatch[0].matchAll(/href=["']([^"']+)["']/gi)];
+function collectAnchorHrefs(root) {
+  const hrefs = [];
+  function walk(node) {
+    if (!node) return;
+    if (node.nodeType === 1) {
+      const tag = (node.tagName || '').toLowerCase();
+      if (tag === 'a') {
+        const href = (node.getAttribute && node.getAttribute('href')) || '';
+        if (href) hrefs.push(href);
+      }
+      let c = node.firstChild;
+      while (c) { walk(c); c = c.nextSibling; }
+      return;
+    }
+    let c = node.firstChild;
+    while (c) { walk(c); c = c.nextSibling; }
+  }
+  walk(root);
+  return hrefs;
+}
+
+function extractAlternativeEditionUrls(html, baseUrl, { parseHtml, findAll }) {
+  const doc = parseHtml(html);
+  const heading = findAll(doc, n => (
+    (n.tagName || '').toLowerCase() === 'h3'
+    && ((n.getAttribute && n.getAttribute('id')) || '').toLowerCase() === 'alternative-utgaver'
+  ))[0];
+  if (!heading) return [];
+
+  let listNode = nextElementSibling(heading);
+  while (listNode && (listNode.tagName || '').toLowerCase() !== 'ul') {
+    listNode = nextElementSibling(listNode);
+  }
+  if (!listNode) return [];
+
   return [...new Set(
-    hrefMatches
-      .map(m => m[1])
-      .filter(Boolean)
+    collectAnchorHrefs(listNode)
       .map(href => {
         try {
           const u = new URL(href, baseUrl);
@@ -90,9 +124,9 @@ export async function fetchBokelskereData(isbn, {
       resultCount: 0,
       title: '',
       editionCount: 0,
-      isbnCandidates: [isbn],
-      newIsbnCount: 0,
-      pageSteps: [],
+      pageUrls: [],
+      primaryUrl: '',
+      primaryHtml: '',
     };
   }
 
@@ -102,33 +136,18 @@ export async function fetchBokelskereData(isbn, {
   const primaryTitle = extractTitle(primaryHtml, domDeps);
   if (primaryTitle) onPrimaryTitle(primaryTitle);
 
-  const editionUrls = extractAlternativeEditionUrls(primaryHtml, primaryUrl)
+  const editionUrls = extractAlternativeEditionUrls(primaryHtml, primaryUrl, domDeps)
     .filter(url => url !== primaryUrl);
 
   const allBookUrls = [...new Set([primaryUrl, ...resultUrls.slice(1), ...editionUrls])];
-  const isbnCandidates = new Set([isbn]);
-  const pageSteps = [];
-
-  for (const bookUrl of allBookUrls) {
-    if (bookUrl !== primaryUrl) onFetch(bookUrl);
-    const html = bookUrl === primaryUrl ? primaryHtml : await fetchText(bookUrl);
-    const newIsbns = [];
-    for (const candidate of extractIsbnCandidatesFromText(html)) {
-      if (!isbnCandidates.has(candidate)) {
-        isbnCandidates.add(candidate);
-        newIsbns.push(candidate);
-      }
-    }
-    pageSteps.push({ url: bookUrl, newIsbns });
-  }
 
   return {
     searchUrl,
     resultCount: resultUrls.length,
     title: primaryTitle,
     editionCount: editionUrls.length,
-    isbnCandidates: [...isbnCandidates],
-    newIsbnCount: Math.max(0, isbnCandidates.size - 1),
-    pageSteps,
+    pageUrls: allBookUrls,
+    primaryUrl,
+    primaryHtml,
   };
 }
