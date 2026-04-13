@@ -1,6 +1,9 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
+const BUILD_VERSION = 'v2026.04.13';
+const BUILD_COMMIT = 'f47e55f+';
+const BUILD_TIME = '2026-04-13 13:45';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
 const SRU_BASE = 'https://sru.aja.bs.no/mlnb';
@@ -120,6 +123,7 @@ function parseMarc(xmlText) {
 // ── UI ─────────────────────────────────────────────────────────────────────────
 
 const statusEl = document.getElementById('status');
+const buildInfoEl = document.getElementById('build-info');
 const resultEl = document.getElementById('result');
 const ageBadgeEl = document.getElementById('result-age');
 const titleEl = document.getElementById('result-title');
@@ -133,6 +137,10 @@ function setStatus(msg, type = '') {
   statusEl.textContent = msg;
   statusEl.className = 'status' + (type ? ' ' + type : '');
   statusEl.hidden = false;
+}
+
+function renderBuildInfo() {
+  buildInfoEl.textContent = `${BUILD_VERSION} · ${BUILD_COMMIT} · ${BUILD_TIME}`;
 }
 
 function showResult(book) {
@@ -388,6 +396,8 @@ function resume() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  renderBuildInfo();
+
   const scanAgainBtn = document.getElementById('scan-again-btn');
   scanAgainBtn.addEventListener('click', resume);
   if (CAMERA_TEST_MODE) {

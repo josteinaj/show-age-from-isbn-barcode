@@ -25,6 +25,15 @@ h1 {
   letter-spacing: 0.02em;
 }
 
+.build-info {
+  text-align: center;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: -0.3rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
 /* Scanner */
 #reader {
   width: 100%;
