@@ -38,18 +38,21 @@ h1 {
 #reader > * {
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover;
 }
 
-/* html5-qrcode wraps its video in a div; make it fill the container */
-#reader div {
+/* html5-qrcode scan region should fill the reader area */
+#reader #reader__scan_region {
   width: 100% !important;
   height: 100% !important;
-  border: none !important;
-  padding: 0 !important;
+  background: #000;
 }
 
-#reader video {
+#reader #reader__dashboard {
+  display: none !important;
+}
+
+#reader video,
+#reader canvas {
   width: 100% !important;
   height: 100% !important;
   border-radius: 12px;
