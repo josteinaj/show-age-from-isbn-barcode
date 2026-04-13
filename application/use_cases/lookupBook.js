@@ -42,6 +42,18 @@ export async function lookupBook(rawIsbn, deps) {
   const triedIsbns = new Set();
   const events = [];
   let lastSruUrl = '';
+  let fetchQueue = Promise.resolve();
+
+  function logGet(url) {
+    events.push(`GET ${url}`);
+  }
+
+  function fetchTextSerial(url) {
+    const next = fetchQueue.then(() => fetchText(url));
+    // Keep queue alive after failures so later calls are still serialized.
+    fetchQueue = next.catch(() => undefined);
+    return next;
+  }
 
   async function trySruLookup(isbnCandidate, logMissEvent = false) {
     if (!isbnCandidate || !(isbnCandidate.length === 10 || isbnCandidate.length === 13)) return null;
@@ -50,26 +62,25 @@ export async function lookupBook(rawIsbn, deps) {
 
     const sruUrl = buildSruUrl(isbnCandidate);
     lastSruUrl = sruUrl;
+    logGet(sruUrl);
     onProgress(`Søker på NB SRU etter ISBN ${isbnCandidate}…`);
 
-    const xml = await fetchText(sruUrl);
+    const xml = await fetchTextSerial(sruUrl);
     const book = parseMarc(xml, { parseXml });
 
     if (book) return { book, isbn: isbnCandidate, sruUrl, events, source: 'sru' };
 
-    if (logMissEvent) {
-      events.push(`${formatEventLink(isbnCandidate, sruUrl)} - Ikke funnet`);
-    }
+    if (logMissEvent) events.push(`Nasjonalbiblioteket: ${isbnCandidate} - Ikke funnet`);
     return null;
   }
 
-  let result = await trySruLookup(isbn, false);
+  let result = await trySruLookup(isbn, true);
   if (result) return result;
 
   if (isbn.length === 10) {
     const isbn13 = isbn10ToIsbn13(isbn);
     if (isbn13) {
-      result = await trySruLookup(isbn13, false);
+      result = await trySruLookup(isbn13, true);
       if (result) return result;
     }
   }
@@ -78,32 +89,48 @@ export async function lookupBook(rawIsbn, deps) {
   let bokelskereData = null;
   try {
     onProgress('Søker på Bokelskere.no…');
-    bokelskereData = await fetchBokelskereData(isbn, domDeps);
-    events.push(`${formatEventLink('Søker på bokelskere.no', bokelskereData.searchUrl)}: ${bokelskereData.resultCount} treff`);
+    bokelskereData = await fetchBokelskereData(isbn, {
+      ...domDeps,
+      fetchText: fetchTextSerial,
+      onFetch: logGet,
+      onSearchResult: (resultCount) => {
+        events.push(`Bokelskere: ${resultCount} treff`);
+      },
+      onPrimaryTitle: (title) => {
+        events.push(`Bokelskere: Fant tittel - ${title}`);
+      },
+    });
   } catch {
-    events.push(`${formatEventLink('Søker på bokelskere.no', bokelskereSearchUrl)}: feil`);
+    events.push('Bokelskere: Feil ved oppslag');
   }
 
   if (bokelskereData && bokelskereData.resultCount > 0) {
-    if (bokelskereData.newIsbnCount > 0) {
-      events.push(`Fant ${bokelskereData.newIsbnCount} andre utgaver med andre ISBN`);
-      onProgress('Søker på andre ISBN-utgaver fra Bokelskere…');
-    }
-
-    const candidateIsbns = bokelskereData.isbnCandidates.filter(c => !triedIsbns.has(c));
-    for (const candidate of candidateIsbns) {
-      try {
-        result = await trySruLookup(candidate, true);
-        if (result) return { ...result, source: 'bokelskere-isbn-fallback' };
-      } catch {
-        events.push(`${formatEventLink(candidate, buildSruUrl(candidate))} - Feil ved oppslag`);
+    for (const step of bokelskereData.pageSteps || []) {
+      for (const candidate of step.newIsbns || []) {
+        if (triedIsbns.has(candidate)) continue;
+        events.push(`Bokelskere: Fant nytt ISBN - ${candidate}`);
+        onProgress('Søker på andre ISBN-utgaver fra Bokelskere…');
+        try {
+          result = await trySruLookup(candidate, true);
+          if (result) return { ...result, source: 'bokelskere-isbn-fallback' };
+        } catch {
+          events.push(`Nasjonalbiblioteket: ${candidate} - Feil ved oppslag`);
+        }
       }
     }
 
     onProgress('Søker på Deichman…');
-    const deichman = await fetchDeichmanSearchData(bokelskereData.title, domDeps);
+    const deichman = await fetchDeichmanSearchData(bokelskereData.title, {
+      ...domDeps,
+      fetchText: fetchTextSerial,
+      onFetch: logGet,
+    });
     if (deichman) {
-      events.push(`${formatEventLink('Søker på deichman.no', deichman.searchUrl)}: ${deichman.resultCount} treff`);
+      events.push(`Deichman: ${deichman.resultCount} treff`);
+      if (deichman.firstUrl) {
+        logGet(deichman.firstUrl);
+        events.push('Deichman: Fant tittel, men uthenting av alder er ikke implementert ennå');
+      }
     }
 
     return {

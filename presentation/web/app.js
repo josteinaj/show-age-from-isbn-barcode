@@ -36,6 +36,12 @@ function formatEventLink(text, url) {
   return `<a href="${escapeHtmlAttr(url)}" target="_blank">${escapeHtml(text)}</a>`;
 }
 
+function linkifyEventText(text) {
+  return escapeHtml(text).replace(/https?:\/\/[^\s<]+/g, (url) => (
+    `<a href="${escapeHtmlAttr(url)}" target="_blank">${escapeHtml(url)}</a>`
+  ));
+}
+
 // ── UI-elementer ───────────────────────────────────────────────────────────────
 
 const statusEl = document.getElementById('status');
@@ -72,7 +78,7 @@ function renderScanHistory() {
   scanHistory.forEach(scan => {
     const li = document.createElement('li');
     const eventsHtml = (scan.events && scan.events.length > 0)
-      ? `<ul class="scan-history-events">${scan.events.map(ev => `<li>${ev}</li>`).join('')}</ul>`
+      ? `<ul class="scan-history-events">${scan.events.map(ev => `<li>${linkifyEventText(ev)}</li>`).join('')}</ul>`
       : '';
 
     li.innerHTML = `
