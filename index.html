@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bokalder</title>
-  <link rel="stylesheet" href="style.css?v=20260413-buildinfo" />
+  <link rel="stylesheet" href="style.css?v=20260413-zxing-fallback" />
 </head>
 <body>
   <main>
@@ -25,7 +25,9 @@
       </div>
     </div>
   </main>
-  <script src="config.js?v=20260413-buildinfo"></script>
-  <script src="app.js?v=20260413-buildinfo"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
+  <script src="config.js?v=20260413-zxing-fallback"></script>
+  <script src="app.js?v=20260413-zxing-fallback"></script>
 </body>
 </html>

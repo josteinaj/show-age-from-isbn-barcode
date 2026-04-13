@@ -180,7 +180,6 @@ function escapeHtml(str) {
 
 // ── Strekkodeskanner ───────────────────────────────────────────────────────────
 
-let scanner = null;
 let paused = false;
 let lastCode = '';
 let lastCodeTime = 0;
@@ -189,6 +188,8 @@ let cameraStream = null;
 let cameraVideoEl = null;
 let detector = null;
 let detectorTimer = null;
+let zxingReader = null;
+let zxingControls = null;
 
 function isFirefoxOniPhone() {
   const ua = navigator.userAgent || '';
@@ -210,6 +211,9 @@ function formatCameraError(err) {
   if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
     return 'Kunne ikke velge ønsket kamera. Prøver alternativ kamera.';
   }
+  if (String(err && err.message || '') === 'ZXING_NOT_AVAILABLE') {
+    return 'Kamera startet, men kunne ikke laste fallback-strekkodeleser.';
+  }
   if (isFirefoxOniPhone()) {
     return 'Firefox på iPhone kan ha problemer med kameratilgang. Prøv å åpne siden i Safari.';
   }
@@ -223,14 +227,41 @@ function stopBarcodeDetectionLoop() {
   }
 }
 
+function stopCameraStream() {
+  if (!cameraStream) return;
+  cameraStream.getTracks().forEach(track => track.stop());
+  cameraStream = null;
+}
+
+function ensureCameraPreviewElement() {
+  let videoEl = document.getElementById('camera-preview');
+  if (!videoEl) {
+    readerEl.innerHTML = '';
+    videoEl = document.createElement('video');
+    videoEl.id = 'camera-preview';
+    videoEl.autoplay = true;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    readerEl.appendChild(videoEl);
+  }
+  cameraVideoEl = videoEl;
+  return videoEl;
+}
+
+function stopZxingReader() {
+  if (zxingControls && typeof zxingControls.stop === 'function') {
+    try { zxingControls.stop(); } catch (_) {}
+  }
+  zxingControls = null;
+
+  if (zxingReader && typeof zxingReader.reset === 'function') {
+    try { zxingReader.reset(); } catch (_) {}
+  }
+}
+
 async function startBarcodeDetection() {
   if (CAMERA_TEST_MODE) return;
   if (!cameraVideoEl) return;
-
-  if (!('BarcodeDetector' in window)) {
-    setStatus('Kamera aktivt, men strekkodelesing støttes ikke i denne nettleseren ennå.', 'error');
-    return;
-  }
 
   const formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
   detector = new window.BarcodeDetector({ formats });
@@ -259,6 +290,35 @@ async function startBarcodeDetection() {
   loop();
 }
 
+async function startZxingFallbackDetection() {
+  if (!window.ZXingBrowser || !window.ZXing) {
+    throw new Error('ZXING_NOT_AVAILABLE');
+  }
+
+  const videoEl = ensureCameraPreviewElement();
+  stopCameraStream();
+  stopZxingReader();
+
+  const hints = new Map();
+  hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+    window.ZXing.BarcodeFormat.EAN_13,
+    window.ZXing.BarcodeFormat.EAN_8,
+    window.ZXing.BarcodeFormat.UPC_A,
+    window.ZXing.BarcodeFormat.UPC_E,
+    window.ZXing.BarcodeFormat.CODE_128,
+  ]);
+
+  zxingReader = new window.ZXingBrowser.BrowserMultiFormatReader(hints, 200);
+
+  zxingControls = await zxingReader.decodeFromVideoDevice(undefined, videoEl, async (result) => {
+    if (!result) return;
+    const text = typeof result.getText === 'function' ? result.getText() : (result.text || '');
+    if (text) {
+      await onDetected(text);
+    }
+  });
+}
+
 function normalizeScannedCode(raw) {
   const cleaned = (raw || '').replace(/[^0-9Xx]/g, '');
 
@@ -282,14 +342,23 @@ async function initScanner() {
   setStatus('Starter kamera…');
 
   try {
-    await startCameraPreview();
+    const hasNativeBarcodeDetector = 'BarcodeDetector' in window;
+
+    if (CAMERA_TEST_MODE || hasNativeBarcodeDetector) {
+      await startCameraPreview();
+    } else {
+      await startZxingFallbackDetection();
+    }
+
     startContainerEl.hidden = true;
 
     if (CAMERA_TEST_MODE) {
       setStatus('Kamera aktivt (testmodus uten strekkodeleser)', 'scanning');
     } else {
       setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
-      await startBarcodeDetection();
+      if (hasNativeBarcodeDetector) {
+        await startBarcodeDetection();
+      }
     }
   } catch (err) {
     console.error('Kamerafeil:', err);
@@ -307,10 +376,7 @@ async function startCameraPreview() {
     throw new Error('UNSUPPORTED_MEDIA_DEVICES');
   }
 
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(track => track.stop());
-    cameraStream = null;
-  }
+  stopCameraStream();
 
   const stream = await navigator.mediaDevices.getUserMedia({
     video: {
@@ -323,17 +389,7 @@ async function startCameraPreview() {
 
   cameraStream = stream;
 
-  let videoEl = document.getElementById('camera-preview');
-  if (!videoEl) {
-    readerEl.innerHTML = '';
-    videoEl = document.createElement('video');
-    videoEl.id = 'camera-preview';
-    videoEl.autoplay = true;
-    videoEl.muted = true;
-    videoEl.playsInline = true;
-    readerEl.appendChild(videoEl);
-  }
-
+  const videoEl = ensureCameraPreviewElement();
   videoEl.srcObject = stream;
   await videoEl.play();
   cameraVideoEl = videoEl;
@@ -353,7 +409,6 @@ async function onDetected(code) {
   lastCode = normalizedCode;
   lastCodeTime = now;
   paused = true;
-  try { scanner.pause(true); } catch (_) {}
 
   hideResult();
   setStatus('Slår opp bok…');
