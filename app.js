@@ -169,8 +169,6 @@ function escapeHtml(str) {
 // ── Strekkodeskanner ───────────────────────────────────────────────────────────
 
 let scanner = null;
-let scannerControls = null;
-let scannerStarted = false;
 let paused = false;
 let lastCode = '';
 let lastCodeTime = 0;
@@ -187,62 +185,52 @@ function normalizeScannedCode(raw) {
   return cleaned;
 }
 
-async function chooseBackCameraId() {
-  const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-  if (!devices || devices.length === 0) return undefined;
+function initScanner() {
+  document.getElementById('reader').hidden = false;
+  scanner = new Html5Qrcode('reader');
 
-  const backDevice = devices.find(d => /back|rear|environment/i.test(d.label));
-  return (backDevice || devices[0]).deviceId;
-}
+  const formats = [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128,
+  ];
 
-async function initScanner() {
-  if (scannerStarted) return;
-
-  if (!window.ZXingBrowser) {
-    setStatus('Kunne ikke laste skannebiblioteket.', 'error');
-    return;
-  }
+  const scannerConfig = {
+    fps: 10,
+    aspectRatio: 4 / 3,
+    disableFlip: true,
+    // Keep a centered scanning area for faster and more stable barcode detection.
+    qrbox: (viewfinderWidth, viewfinderHeight) => {
+      const side = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8);
+      return { width: side, height: side };
+    },
+    formatsToSupport: formats,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true,
+    },
+  };
 
   setStatus('Starter kamera…');
 
-  const hints = new Map();
-  hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [
-    ZXingBrowser.BarcodeFormat.EAN_13,
-    ZXingBrowser.BarcodeFormat.EAN_8,
-    ZXingBrowser.BarcodeFormat.UPC_A,
-    ZXingBrowser.BarcodeFormat.UPC_E,
-    ZXingBrowser.BarcodeFormat.CODE_128,
-  ]);
-
-  scanner = new ZXingBrowser.BrowserMultiFormatReader(hints, {
-    delayBetweenScanAttempts: 100,
-    delayBetweenScanSuccess: 500,
-  });
-
-  try {
-    const videoEl = document.getElementById('camera-preview');
-    const deviceId = await chooseBackCameraId();
-
-    scannerControls = await scanner.decodeFromVideoDevice(deviceId, videoEl, (result, error) => {
-      if (result) {
-        onDetected(result.getText());
-      }
-      if (error && !(error instanceof ZXingBrowser.NotFoundException)) {
-        // Ignore normal "not found" while scanning, but keep useful diagnostics.
-        console.debug('Scan warning:', error.message || error);
-      }
+  scanner
+    .start(
+      { facingMode: 'environment' },
+      scannerConfig,
+      onDetected,
+      () => { /* ignorerer kontinuerlige scannerrors */ }
+    )
+    .then(() => {
+      setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
+    })
+    .catch(err => {
+      console.error('Kamerafeil:', err);
+      setStatus(
+        'Kunne ikke starte kamera. Gi appen kameratilgang og last inn siden på nytt.',
+        'error'
+      );
     });
-
-    scannerStarted = true;
-    document.getElementById('start-camera-btn').hidden = true;
-    setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
-  } catch (err) {
-    console.error('Kamerafeil:', err);
-    setStatus(
-      'Kunne ikke starte kamera. Sjekk kameratilgang i Safari-innstillinger og prøv igjen.',
-      'error'
-    );
-  }
 }
 
 async function onDetected(code) {
@@ -291,6 +279,7 @@ function resume() {
   hideResult();
   lastCode = '';
   paused = false;
+  try { scanner.resume(); } catch (_) {}
   setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
 }
 
@@ -298,5 +287,11 @@ function resume() {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('scan-again-btn').addEventListener('click', resume);
-  document.getElementById('start-camera-btn').addEventListener('click', initScanner);
+  const startContainer = document.getElementById('start-container');
+  const startBtn = document.getElementById('start-btn');
+
+  startBtn.addEventListener('click', () => {
+    startContainer.hidden = true;
+    initScanner();
+  });
 });

@@ -9,11 +9,11 @@
 <body>
   <main>
     <h1>Bokalder</h1>
-    <button id="start-camera-btn" class="btn">Start kamera</button>
-    <div id="reader">
-      <video id="camera-preview" autoplay playsinline muted></video>
+    <div id="reader" hidden></div>
+    <div id="status" class="status" hidden></div>
+    <div id="start-container">
+      <button id="start-btn" class="btn btn-start">Start kamera</button>
     </div>
-    <div id="status" class="status">Trykk "Start kamera" for å begynne.</div>
     <div id="result" hidden>
       <div class="result-card">
         <div id="result-age" class="age-badge"></div>
@@ -24,7 +24,7 @@
       </div>
     </div>
   </main>
-  <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
