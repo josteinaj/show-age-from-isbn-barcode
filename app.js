@@ -3,4 +3,4 @@
 //
 //   presentation/web/app.js   — UI-kontroller (lastes fra index.html)
 //   application/use_cases/    — felles use cases
-//   infrastructure/           — adapters (HTTP, HTML, ISBN, SRU, Bokelskere, Deichman)
+//   infrastructure/           — adapters (HTTP, HTML, ISBN, SRU, Bokelskere)

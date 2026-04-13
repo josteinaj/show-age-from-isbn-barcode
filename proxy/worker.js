@@ -14,8 +14,6 @@ const ALLOWED_HOSTS = new Set([
   'sru.aja.bs.no',
   'bokelskere.no',
   'www.bokelskere.no',
-  'deichman.no',
-  'www.deichman.no',
 ]);
 
 export default {

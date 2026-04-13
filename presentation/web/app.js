@@ -337,7 +337,7 @@ async function onDetected(code) {
 
     if (book) {
       let status = 'Funnet';
-      if (source === 'bokelskere-title-fallback') {
+      if (source === 'bokelskere-title-fallback' || source === 'nb-title-fallback') {
         status = book.ageGroups && book.ageGroups.length > 0
           ? 'Funnet via fallback'
           : 'Funnet via fallback (ingen alder)';

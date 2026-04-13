@@ -45,8 +45,6 @@ Proxyen håndterer CORS og begrenser hvilke domener frontend kan hente HTML/XML 
 - `sru.aja.bs.no`
 - `bokelskere.no`
 - `www.bokelskere.no`
-- `deichman.no`
-- `www.deichman.no`
 
 Hvis du trenger nye fallback-kilder må både:
 - hosten legges til i `proxy/worker.js`
@@ -64,9 +62,9 @@ Kjernen ligger i `lookupBook()` i `app.js`.
    - hent ISBN-kandidater fra disse sidene
    - prøv SRU med nye ISBN-kandidater
 4. Hvis fortsatt uten SRU-treff men Bokelskere ga bok:
-   - bruk tittel som fallback
-   - bygg Deichman-søk (`https://deichman.no/sok/<url-encodet-tittel>`)
-   - vis fallback-resultat med diagnostisk informasjon i emnefeltet
+   - bruk tittelen fra Bokelskere som fallback
+   - søk i NB SRU med tittel (`query=dc.title=\"<tittel>\"`)
+   - hvis fortsatt uten treff: vis Bokelskere-tittel som fallback-resultat
 
 ## Datafelt og mapping
 
@@ -138,7 +136,7 @@ Eksempel:
 ### Kamera fungerer, men ingen treff
 
 1. Klikk ISBN i skannelisten og verifiser SRU-svar.
-2. Sjekk om fallback-data kom fra Bokelskere/Deichman.
+2. Sjekk om fallback-data kom fra Bokelskere eller NB-tittelsøk.
 3. Sjekk worker-allowlist og at siste worker er deployet.
 
 ### CORS/403-feil
@@ -153,7 +151,7 @@ Eksempel:
 
 ## Veikart (anbefalt)
 
-- Legg til en tydelig «kilde»-etikett i UI (`NB`, `Bokelskere`, `Deichman fallback`).
+- Legg til en tydelig «kilde»-etikett i UI (`NB`, `Bokelskere`, `NB-tittelsøk fallback`).
 - Legg til enkel end-to-end test av `lookupBook()` med mockede HTML/XML-svar.
 - Innfør robust parsing per kilde med dedikerte parser-funksjoner og testfixtures.
 - Vurder server-side fallback-aggregator for mer stabil scraping over tid.

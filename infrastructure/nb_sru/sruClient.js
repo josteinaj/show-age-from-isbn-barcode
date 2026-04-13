@@ -5,6 +5,11 @@ export function buildSruUrl(isbn) {
   return `${SRU_BASE}?operation=searchRetrieve&query=dc.identifier=${encodeURIComponent(isbn)}&recordSchema=marc21`;
 }
 
+export function buildSruTitleUrl(title) {
+  const cql = `dc.title="${String(title || '').trim()}"`;
+  return `${SRU_BASE}?operation=searchRetrieve&recordSchema=marc21&query=${encodeURIComponent(cql)}`;
+}
+
 /**
  * Parse a MARC 21 XML response into a book object.
  * @param {string} xmlText

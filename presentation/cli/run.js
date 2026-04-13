@@ -35,7 +35,7 @@ export async function runCliLookup(rawIsbn) {
   console.log(`SRU: ${sruUrl}`);
 
   if (book) {
-    const status = source === 'bokelskere-title-fallback'
+    const status = (source === 'bokelskere-title-fallback' || source === 'nb-title-fallback')
       ? (book.ageGroups.length > 0 ? 'Funnet via fallback' : 'Funnet via fallback (ingen alder)')
       : 'Funnet';
     console.log(`Status: ${status}`);

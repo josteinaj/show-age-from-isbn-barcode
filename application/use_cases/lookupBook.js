@@ -1,10 +1,9 @@
 import { cleanIsbn, extractIsbnCandidatesFromText, isbn10ToIsbn13 } from '../../infrastructure/isbn/isbn.js';
-import { buildSruUrl, parseMarc } from '../../infrastructure/nb_sru/sruClient.js';
+import { buildSruUrl, buildSruTitleUrl, parseMarc } from '../../infrastructure/nb_sru/sruClient.js';
 import { fetchBokelskereData, buildBokelskereSearchUrl } from '../../infrastructure/bokelskere/bokelskereClient.js';
-import { fetchDeichmanSearchData } from '../../infrastructure/deichman/deichmanClient.js';
 
 /**
- * Look up a book by ISBN, with Bokelskere and Deichman fallbacks.
+ * Look up a book by ISBN, with Bokelskere and NB title-search fallbacks.
  *
  * @param {string} rawIsbn
  * @param {{
@@ -22,7 +21,7 @@ import { fetchDeichmanSearchData } from '../../infrastructure/deichman/deichmanC
  *   isbn: string,
  *   sruUrl: string,
  *   events: string[],
- *   source: 'sru' | 'bokelskere-isbn-fallback' | 'bokelskere-title-fallback' | 'none',
+ *   source: 'sru' | 'bokelskere-isbn-fallback' | 'nb-title-fallback' | 'bokelskere-title-fallback' | 'none',
  * }>}
  */
 export async function lookupBook(rawIsbn, deps) {
@@ -135,17 +134,26 @@ export async function lookupBook(rawIsbn, deps) {
       }
     }
 
-    onProgress('Søker på Deichman…');
-    const deichman = await fetchDeichmanSearchData(bokelskereData.title, {
-      ...domDeps,
-      fetchText: fetchTextSerial,
-      onFetch: logGet,
-    });
-    if (deichman) {
-      events.push(`Deichman: ${deichman.resultCount} treff`);
-      if (deichman.firstUrl) {
-        logGet(deichman.firstUrl);
-        events.push('Deichman: Fant tittel, men uthenting av alder er ikke implementert ennå');
+    if (bokelskereData.title) {
+      onProgress('Søker på NB SRU med tittel…');
+      const sruTitleUrl = buildSruTitleUrl(bokelskereData.title);
+      logGet(sruTitleUrl);
+      lastSruUrl = sruTitleUrl;
+      try {
+        const xml = await fetchTextSerial(sruTitleUrl);
+        const titleBook = parseMarc(xml, { parseXml });
+        if (titleBook) {
+          return {
+            book: titleBook,
+            isbn,
+            sruUrl: sruTitleUrl,
+            events,
+            source: 'nb-title-fallback',
+          };
+        }
+        events.push(`Nasjonalbiblioteket (tittel): ${bokelskereData.title} - Ikke funnet`);
+      } catch {
+        events.push(`Nasjonalbiblioteket (tittel): ${bokelskereData.title} - Feil ved oppslag`);
       }
     }
 
