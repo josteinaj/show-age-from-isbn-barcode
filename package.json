@@ -1,0 +1,19 @@
+{
+  "name": "show-age-from-isbn-barcode",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "proxy:whoami": "wrangler whoami",
+    "proxy:dev": "wrangler dev --config proxy/wrangler.toml",
+    "proxy:deploy": "wrangler deploy --config proxy/wrangler.toml",
+    "start": "python3 -m http.server 8000"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "wrangler": "^4.82.1"
+  }
+}

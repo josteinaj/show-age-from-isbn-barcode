@@ -1,13 +1,11 @@
 /**
  * Cloudflare Worker: CORS-proxy for Nasjonalbibliotekets SRU-API
  *
- * Oppsett (gratis):
- *   1. Gå til https://workers.cloudflare.com og logg inn / opprett konto.
- *   2. Klikk "Create a Worker", gi den et navn (f.eks. "nb-isbn-proxy").
- *   3. Erstatt standardkoden med innholdet i denne filen.
- *   4. Klikk "Deploy".
- *   5. Kopier Worker-URL-en (f.eks. https://nb-isbn-proxy.dinbruker.workers.dev)
- *      og lim den inn som CORS_PROXY_BASE i app.js.
+ * Oppsett (CLI, gratis):
+ *   1. npm install
+ *   2. npm run proxy:whoami   (logger inn ved behov)
+ *   3. npm run proxy:deploy
+ *   4. Kopier workers.dev-URL-en og sett den i config.js
  *
  * Sikkerhet: Worker-en aksepterer kun forespørsler mot sru.aja.bs.no.
  */

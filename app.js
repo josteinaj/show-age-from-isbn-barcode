@@ -1,19 +1,5 @@
-/**
- * CORS-proxy for Nasjonalbibliotekets SRU-API.
- *
- * Nasjonalbibliotekets SRU-API (sru.aja.bs.no) støtter ikke CORS, så nettleseren
- * blokkerer direkte forespørsler fra GitHub Pages. Denne appen trenger derfor en
- * CORS-proxy.
- *
- * Sett opp en gratis Cloudflare Worker (se proxy/worker.js i dette repoet):
- *   1. Gå til https://workers.cloudflare.com og logg inn (gratis).
- *   2. Opprett en ny Worker og lim inn innholdet fra proxy/worker.js.
- *   3. Deploy og kopier Worker-URLen (f.eks. https://nb-proxy.dinbruker.workers.dev).
- *   4. Lim den inn som verdi for CORS_PROXY_BASE nedenfor (uten etterfølgende /).
- *
- * Gratis Cloudflare Workers: 100 000 forespørsler/dag – mer enn nok til privat bruk.
- */
-const CORS_PROXY_BASE = '';   // f.eks. 'https://nb-proxy.dinbruker.workers.dev'
+// CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
+const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
 const SRU_BASE = 'https://sru.aja.bs.no/mlnb';
