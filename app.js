@@ -1,5 +1,6 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
+const CAMERA_TEST_MODE = true;
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
 const SRU_BASE = 'https://sru.aja.bs.no/mlnb';
@@ -176,6 +177,7 @@ let paused = false;
 let lastCode = '';
 let lastCodeTime = 0;
 let isStarting = false;
+let cameraStream = null;
 
 function isFirefoxOniPhone() {
   const ua = navigator.userAgent || '';
@@ -281,6 +283,13 @@ async function initScanner() {
   setStatus('Starter kamera…');
 
   try {
+    if (CAMERA_TEST_MODE) {
+      await startCameraPreview();
+      startContainerEl.hidden = true;
+      setStatus('Kamera aktivt (testmodus uten strekkodeleser)', 'scanning');
+      return;
+    }
+
     await startScannerWithFallback(scannerConfig);
     startContainerEl.hidden = true;
     setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
@@ -293,6 +302,42 @@ async function initScanner() {
     isStarting = false;
     startBtnEl.disabled = false;
   }
+}
+
+async function startCameraPreview() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error('UNSUPPORTED_MEDIA_DEVICES');
+  }
+
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    },
+    audio: false,
+  });
+
+  cameraStream = stream;
+
+  let videoEl = document.getElementById('camera-preview');
+  if (!videoEl) {
+    readerEl.innerHTML = '';
+    videoEl = document.createElement('video');
+    videoEl.id = 'camera-preview';
+    videoEl.autoplay = true;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    readerEl.appendChild(videoEl);
+  }
+
+  videoEl.srcObject = stream;
+  await videoEl.play();
 }
 
 async function onDetected(code) {
@@ -338,6 +383,11 @@ function scheduleResume(ms) {
 }
 
 function resume() {
+  if (CAMERA_TEST_MODE) {
+    setStatus('Kamera aktivt (testmodus uten strekkodeleser)', 'scanning');
+    return;
+  }
+
   hideResult();
   lastCode = '';
   paused = false;
@@ -348,7 +398,12 @@ function resume() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('scan-again-btn').addEventListener('click', resume);
+  const scanAgainBtn = document.getElementById('scan-again-btn');
+  scanAgainBtn.addEventListener('click', resume);
+  if (CAMERA_TEST_MODE) {
+    scanAgainBtn.hidden = true;
+  }
+
   startBtnEl.addEventListener('click', () => {
     initScanner();
   });
