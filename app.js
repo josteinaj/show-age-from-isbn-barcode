@@ -1,8 +1,8 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_COMMIT = '5379661';
-const BUILD_TIME = '13. april 2026 22:59';
+const BUILD_COMMIT = 'cfb33ec';
+const BUILD_TIME = '13. april 2026 23:03';
 const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
@@ -170,6 +170,13 @@ async function fetchBokelskereData(isbn) {
   const allBookUrls = [...new Set([primaryUrl, ...editionUrls])];
   const isbnCandidates = new Set([isbn]);
 
+  // Extract ISBNs from search results page too
+  for (const candidate of extractIsbnCandidatesFromText(searchHtml)) {
+    if (candidate !== isbn) {
+      isbnCandidates.add(candidate);
+    }
+  }
+
   for (const bookUrl of allBookUrls) {
     const html = bookUrl === primaryUrl ? primaryHtml : await fetchTextUrl(bookUrl);
     for (const candidate of extractIsbnCandidatesFromText(html)) {
@@ -234,7 +241,9 @@ async function lookupBook(rawIsbn, onProgress = () => {}) {
     }
 
     if (logMissEvent) {
-      events.push(`${isbnCandidate} - Ikke funnet`);
+      const sruUrl = buildSruUrl(isbnCandidate);
+      const linkHtml = createEventLink(isbnCandidate, sruUrl);
+      events.push(`${linkHtml} - Ikke funnet`);
     }
 
     return null;
@@ -281,7 +290,9 @@ async function lookupBook(rawIsbn, onProgress = () => {}) {
           };
         }
       } catch (err) {
-        events.push(`${candidate} - Feil ved oppslag`);
+        const sruUrl = buildSruUrl(candidate);
+        const linkHtml = createEventLink(candidate, sruUrl);
+        events.push(`${linkHtml} - Feil ved oppslag`);
         console.warn(`SRU-oppslag feilet for kandidat ${candidate}:`, err);
       }
     }
