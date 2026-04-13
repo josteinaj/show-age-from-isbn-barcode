@@ -1,8 +1,8 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_COMMIT = 'c9a260c';
-const BUILD_TIME = '13. april 2026 23:04';
+const BUILD_COMMIT = '35257a1';
+const BUILD_TIME = '13. april 2026 23:14';
 const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
@@ -78,16 +78,24 @@ function extractBookPageUrlsFromDoc(doc, baseUrl) {
   const urls = Array.from(doc.querySelectorAll('a[href*="/bok/"]'))
     .map(a => a.getAttribute('href'))
     .filter(Boolean)
-    .map(href => new URL(href, baseUrl).toString())
-    .filter(url => /\/bok\/[^/]+\/\d+\/?$/.test(url));
+    .map(href => { try { return new URL(href, baseUrl); } catch { return null; } })
+    .filter(u => u && /\/bok\/[^/]+\/\d+\/?$/.test(u.pathname))
+    .map(u => u.toString());
 
   return [...new Set(urls)];
 }
 
 function extractTitleFromBokelskereDoc(doc) {
-  const h1 = doc.querySelector('h1');
-  if (!h1) return '';
-  return h1.textContent.replace(/\s+/g, ' ').trim();
+  // Use <title> tag: format is "Book Title av Author"
+  const titleEl = doc.querySelector('title');
+  if (titleEl) {
+    const text = titleEl.textContent.replace(/\s+/g, ' ').trim();
+    return text.replace(/\s+av\s+.+$/i, '').trim() || text;
+  }
+  // Fallback: h1 that isn't the site name
+  const h1s = Array.from(doc.querySelectorAll('h1'));
+  const bookH1 = h1s.find(el => !el.textContent.includes('Bokelskere'));
+  return bookH1 ? bookH1.textContent.replace(/\s+/g, ' ').trim() : '';
 }
 
 function extractIsbnCandidatesFromText(text) {
