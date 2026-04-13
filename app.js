@@ -1,8 +1,8 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_COMMIT = 'cfb33ec';
-const BUILD_TIME = '13. april 2026 23:03';
+const BUILD_COMMIT = 'c9a260c';
+const BUILD_TIME = '13. april 2026 23:04';
 const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
@@ -261,13 +261,15 @@ async function lookupBook(rawIsbn, onProgress = () => {}) {
   }
 
   let bokelskereData = null;
+  const bokelskereSearchUrl = `${BOKELSKERE_SEARCH_BASE}?finn=${encodeURIComponent(isbn)}`;
   try {
     onProgress('Søker på Bokelskere.no…');
     bokelskereData = await fetchBokelskereData(isbn);
     const linkHtml = createEventLink('Søker på bokelskere.no', bokelskereData.searchUrl);
     events.push(`${linkHtml}: ${bokelskereData.resultCount} treff`);
   } catch (err) {
-    events.push('Søker på bokelskere.no: feil');
+    const linkHtml = createEventLink('Søker på bokelskere.no', bokelskereSearchUrl);
+    events.push(`${linkHtml}: feil`);
     console.warn('Bokelskere fallback feilet:', err);
   }
 
