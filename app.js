@@ -173,20 +173,50 @@ let paused = false;
 let lastCode = '';
 let lastCodeTime = 0;
 
+function normalizeScannedCode(raw) {
+  const cleaned = (raw || '').replace(/[^0-9Xx]/g, '');
+
+  // Many book barcodes include add-on digits (EAN-13 + addon);
+  // keep the ISBN core if we can detect it.
+  if (cleaned.length > 13 && (cleaned.startsWith('978') || cleaned.startsWith('979'))) {
+    return cleaned.slice(0, 13);
+  }
+
+  return cleaned;
+}
+
 function initScanner() {
   scanner = new Html5Qrcode('reader');
 
   const formats = [
     Html5QrcodeSupportedFormats.EAN_13,
     Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128,
   ];
+
+  const scannerConfig = {
+    fps: 10,
+    aspectRatio: 4 / 3,
+    disableFlip: true,
+    // Keep a centered scanning area for faster and more stable barcode detection.
+    qrbox: (viewfinderWidth, viewfinderHeight) => {
+      const side = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.8);
+      return { width: side, height: side };
+    },
+    formatsToSupport: formats,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true,
+    },
+  };
 
   setStatus('Starter kamera…');
 
   scanner
     .start(
       { facingMode: 'environment' },
-      { fps: 5, formatsToSupport: formats },
+      scannerConfig,
       onDetected,
       () => { /* ignorerer kontinuerlige scannerrors */ }
     )
@@ -203,12 +233,17 @@ function initScanner() {
 }
 
 async function onDetected(code) {
+  const normalizedCode = normalizeScannedCode(code);
+  if (!(normalizedCode.length === 10 || normalizedCode.length === 13)) {
+    return;
+  }
+
   const now = Date.now();
   // Ignorer samme kode i 5 sekunder for å unngå doble oppslag
-  if (code === lastCode && now - lastCodeTime < 5000) return;
+  if (normalizedCode === lastCode && now - lastCodeTime < 5000) return;
   if (paused) return;
 
-  lastCode = code;
+  lastCode = normalizedCode;
   lastCodeTime = now;
   paused = true;
   try { scanner.pause(true); } catch (_) {}
@@ -217,12 +252,12 @@ async function onDetected(code) {
   setStatus('Slår opp bok…');
 
   try {
-    const book = await lookupBook(code);
+    const book = await lookupBook(normalizedCode);
     if (book) {
       statusEl.hidden = true;
       showResult(book);
     } else {
-      setStatus(`Ingen oppføring funnet for ISBN: ${code}`, 'error');
+      setStatus(`Ingen oppføring funnet for ISBN: ${normalizedCode}`, 'error');
       scheduleResume(4000);
     }
   } catch (err) {

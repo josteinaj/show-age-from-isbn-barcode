@@ -56,10 +56,6 @@ h1 {
   object-fit: cover;
 }
 
-#reader canvas {
-  display: none !important;
-}
-
 /* Status */
 .status {
   text-align: center;
