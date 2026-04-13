@@ -1,8 +1,8 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_COMMIT = '08eb637';
-const BUILD_TIME = '13. april 2026 22:40';
+const BUILD_COMMIT = '381e905';
+const BUILD_TIME = '13. april 2026 22:45';
 const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
@@ -233,7 +233,8 @@ async function lookupBook(rawIsbn) {
   let bokelskereData = null;
   try {
     bokelskereData = await fetchBokelskereData(isbn);
-    events.push(`Søker på bokelskere.no: ${bokelskereData.resultCount} treff`);
+    const linkHtml = createEventLink('Søker på bokelskere.no', bokelskereData.searchUrl);
+    events.push(`${linkHtml}: ${bokelskereData.resultCount} treff`);
   } catch (err) {
     events.push('Søker på bokelskere.no: feil');
     console.warn('Bokelskere fallback feilet:', err);
@@ -262,7 +263,8 @@ async function lookupBook(rawIsbn) {
 
     const deichman = await fetchDeichmanSearchData(bokelskereData.title);
     if (deichman) {
-      events.push(`Søker etter "${bokelskereData.title}" på deichman.no: ${deichman.resultCount} treff`);
+      const linkHtml = createEventLink('Søker på deichman.no', deichman.searchUrl, true);
+      events.push(`${linkHtml}: ${deichman.resultCount} treff`);
     }
 
     return {
@@ -362,7 +364,7 @@ function renderScanHistory() {
   scanHistory.forEach(scan => {
     const li = document.createElement('li');
     const eventsHtml = (scan.events && scan.events.length > 0)
-      ? `<ul class="scan-history-events">${scan.events.map(ev => `<li>${escapeHtml(ev)}</li>`).join('')}</ul>`
+      ? `<ul class="scan-history-events">${scan.events.map(ev => `<li>${ev}</li>`).join('')}</ul>`
       : '';
 
     li.innerHTML = `
@@ -438,6 +440,20 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function escapeHtmlAttr(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function createEventLink(text, url, isPost = false) {
+  const postLabel = isPost ? ' (POST)' : '';
+  const escapedUrl = escapeHtmlAttr(url);
+  return `<a href="${escapedUrl}" target="_blank">${escapeHtml(text)}</a>${postLabel}`;
 }
 
 // ── Strekkodeskanner ───────────────────────────────────────────────────────────
