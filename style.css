@@ -34,6 +34,18 @@ h1 {
   letter-spacing: 0.02em;
 }
 
+.build-link {
+  color: #60a5fa;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.build-link:hover {
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
+
 /* Scanner */
 #reader {
   width: 100%;

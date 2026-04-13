@@ -1,0 +1,30 @@
+#!/bin/bash
+# Auto-update build info before each commit
+
+set -e
+
+# Get short commit hash (7 chars) and Norwegian timestamp
+COMMIT_HASH=$(git rev-parse --short=7 HEAD)
+BUILD_TIME=$(date '+%-d. %b. %Y %H:%M' | sed 's/Jan/jan/g; s/Feb/feb/g; s/Mar/mar/g; s/Apr/apr/g; s/May/mai/g; s/Jun/jun/g; s/Jul/jul/g; s/Aug/aug/g; s/Sep/sep/g; s/Oct/okt/g; s/Nov/nov/g; s/Dec/des/g')
+
+# Generate cache-buster (timestamp-based)
+CACHE_BUSTER="v$(date +%s)"
+
+# Paths
+APP_JS="app.js"
+INDEX_HTML="index.html"
+STYLE_CSS="style.css"
+
+# Update app.js
+sed -i.bak "s/const BUILD_COMMIT = '[^']*'/const BUILD_COMMIT = '$COMMIT_HASH'/" "$APP_JS"
+sed -i.bak "s/const BUILD_TIME = '[^']*'/const BUILD_TIME = '$BUILD_TIME'/" "$APP_JS"
+rm -f "$APP_JS.bak"
+
+# Update cache-buster in index.html (all query params)
+sed -i.bak "s/?v=20260413-[^\"']/?v=$CACHE_BUSTER/g" "$INDEX_HTML"
+rm -f "$INDEX_HTML.bak"
+
+# Stage these files
+git add "$APP_JS" "$INDEX_HTML" "$STYLE_CSS"
+
+exit 0

@@ -1,9 +1,9 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_VERSION = 'v2026.04.13';
-const BUILD_COMMIT = 'f47e55f+';
-const BUILD_TIME = '2026-04-13 13:45';
+const BUILD_COMMIT = 'b936bd5';
+const BUILD_TIME = '13. april. 2026 21:59';
+const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
 const SRU_BASE = 'https://sru.aja.bs.no/mlnb';
@@ -178,7 +178,8 @@ function setStatus(msg, type = '') {
 }
 
 function renderBuildInfo() {
-  buildInfoEl.textContent = `${BUILD_VERSION} · ${BUILD_COMMIT} · ${BUILD_TIME}`;
+  const commitUrl = `https://github.com/${GITHUB_REPO}/commit/${BUILD_COMMIT}`;
+  buildInfoEl.innerHTML = `<a href="${commitUrl}" target="_blank" class="build-link">${BUILD_COMMIT} · ${BUILD_TIME}</a>`;
 }
 
 function showResult(book) {
