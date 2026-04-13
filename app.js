@@ -33,9 +33,13 @@ function isbn10ToIsbn13(isbn10) {
 
 // ── API-kall ───────────────────────────────────────────────────────────────────
 
+let lastSruUrl = '';
+let scanHistory = [];
+
 async function fetchXml(isbn) {
   const sruUrl = `${SRU_BASE}?operation=searchRetrieve&query=dc.identifier=${encodeURIComponent(isbn)}&recordSchema=marc21`;
   const url = CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/?url=${encodeURIComponent(sruUrl)}` : sruUrl;
+  lastSruUrl = sruUrl;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -51,18 +55,18 @@ async function lookupBook(rawIsbn) {
 
   let xml = await fetchXml(isbn);
   let book = parseMarc(xml);
-  if (book) return book;
+  if (book) return { book, isbn, sruUrl: lastSruUrl };
 
   if (isbn.length === 10) {
     const isbn13 = isbn10ToIsbn13(isbn);
     if (isbn13) {
       xml = await fetchXml(isbn13);
       book = parseMarc(xml);
-      if (book) return book;
+      if (book) return { book, isbn: isbn13, sruUrl: lastSruUrl };
     }
   }
 
-  return null;
+  return { book: null, isbn, sruUrl: lastSruUrl };
 }
 
 // ── MARC 21 XML-parser ─────────────────────────────────────────────────────────
@@ -132,6 +136,40 @@ const subjectsEl = document.getElementById('result-subjects');
 const readerEl = document.getElementById('reader');
 const startContainerEl = document.getElementById('start-container');
 const startBtnEl = document.getElementById('start-btn');
+const scanHistorySectionEl = document.getElementById('scan-history-section');
+const scanHistoryListEl = document.getElementById('scan-history-list');
+
+function renderScanHistory() {
+  scanHistoryListEl.innerHTML = '';
+  scanHistory.forEach(scan => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <div class="scan-history-isbn">
+        <a href="#" data-sru-url="${escapeHtml(scan.sruUrl)}" target="_blank">${escapeHtml(scan.isbn)}</a>
+      </div>
+      <div class="scan-history-status">${escapeHtml(scan.status)}</div>
+    `;
+    scanHistoryListEl.appendChild(li);
+  });
+
+  scanHistorySectionEl.hidden = scanHistory.length === 0;
+
+  // Legg til click-handler for alle linkene
+  document.querySelectorAll('#scan-history-list a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const url = link.getAttribute('data-sru-url');
+      if (url) window.open(url, '_blank');
+    });
+  });
+}
+
+function addToScanHistory(isbn, sruUrl, status) {
+  scanHistory.unshift({ isbn, sruUrl, status, time: new Date().toLocaleTimeString('nb-NO') });
+  // Behold maksimalt 20 oppføringer i historikken
+  if (scanHistory.length > 20) scanHistory.pop();
+  renderScanHistory();
+}
 
 function setStatus(msg, type = '') {
   statusEl.textContent = msg;
@@ -414,15 +452,20 @@ async function onDetected(code) {
   setStatus('Slår opp bok…');
 
   try {
-    const book = await lookupBook(normalizedCode);
+    const result = await lookupBook(normalizedCode);
+    const { book, sruUrl } = result;
+    
     if (book) {
+      addToScanHistory(normalizedCode, sruUrl, 'Funnet');
       statusEl.hidden = true;
       showResult(book);
     } else {
+      addToScanHistory(normalizedCode, sruUrl, 'Ikke funnet');
       setStatus(`Ingen oppføring funnet for ISBN: ${normalizedCode}`, 'error');
       scheduleResume(4000);
     }
   } catch (err) {
+    addToScanHistory(normalizedCode, lastSruUrl, 'Feil ved oppslag');
     console.error('Oppslagsfeil:', err);
     const msg = CORS_PROXY_BASE
       ? 'Feil ved oppslag. Sjekk internettilkoblingen.'

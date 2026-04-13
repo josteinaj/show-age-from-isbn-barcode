@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Anbefalt alder for bok</title>
-  <link rel="stylesheet" href="style.css?v=20260413-zxing-fallback" />
+  <link rel="stylesheet" href="style.css?v=20260413-scan-history" />
 </head>
 <body>
   <main>
@@ -24,10 +24,14 @@
         <button id="scan-again-btn" class="btn">Skann ny bok</button>
       </div>
     </div>
+    <div id="scan-history-section" hidden>
+      <h3 id="scan-history-title">Skannet i denne sesjonen</h3>
+      <ul id="scan-history-list" class="scan-history-list"></ul>
+    </div>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
-  <script src="config.js?v=20260413-zxing-fallback"></script>
-  <script src="app.js?v=20260413-zxing-fallback"></script>
+  <script src="config.js?v=20260413-scan-history"></script>
+  <script src="app.js?v=20260413-scan-history"></script>
 </body>
 </html>

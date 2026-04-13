@@ -196,3 +196,53 @@ h1 {
   padding: 0.9rem 2.5rem;
   border-radius: 50px;
 }
+
+/* Scan history section */
+#scan-history-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #334155;
+}
+
+#scan-history-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 0.75rem;
+}
+
+.scan-history-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.scan-history-list li {
+  padding: 0.5rem 0.75rem;
+  background: rgba(100, 116, 139, 0.2);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.scan-history-list li a {
+  color: #60a5fa;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: monospace;
+}
+
+.scan-history-list li a:hover {
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
+.scan-history-isbn {
+  font-weight: 600;
+}
+
+.scan-history-status {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+}
