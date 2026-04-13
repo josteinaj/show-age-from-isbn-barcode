@@ -53,10 +53,19 @@ export function parseMarc(xmlText, { parseXml }) {
     ageGroups = fields('521').map(df => sub(df, 'a')).filter(Boolean);
   }
 
-  const subjects = fields('655')
+  const subjectCandidates = fields('655')
     .filter(df => sub(df, '9') === 'nob')
     .map(df => sub(df, 'a'))
     .filter(Boolean);
+
+  const seenSubjects = new Set();
+  const subjects = [];
+  for (const s of subjectCandidates) {
+    const key = s.toLowerCase();
+    if (seenSubjects.has(key)) continue;
+    seenSubjects.add(key);
+    subjects.push(s);
+  }
 
   return { title, author, ageGroups, subjects };
 }
