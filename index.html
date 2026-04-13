@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bokalder</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Bokalder</h1>
+    <div id="reader"></div>
+    <div id="status" class="status">Initialiserer kamera…</div>
+    <div id="result" hidden>
+      <div class="result-card">
+        <div id="result-age" class="age-badge"></div>
+        <h2 id="result-title"></h2>
+        <p id="result-author" class="author"></p>
+        <div id="result-subjects" class="subjects"></div>
+        <button id="scan-again-btn" class="btn">Skann ny bok</button>
+      </div>
+    </div>
+  </main>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

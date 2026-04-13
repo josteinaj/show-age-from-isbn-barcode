@@ -1,0 +1,164 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: 0.75rem 0;
+  letter-spacing: 0.02em;
+}
+
+/* Scanner */
+#reader {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4 / 3;
+  position: relative;
+}
+
+#reader > * {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+/* html5-qrcode wraps its video in a div; make it fill the container */
+#reader div {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+#reader video {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+#reader canvas {
+  display: none !important;
+}
+
+/* Status */
+.status {
+  text-align: center;
+  padding: 0.6rem 0.75rem;
+  margin: 0.75rem 0 0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.08);
+  line-height: 1.4;
+}
+
+.status.error {
+  background: rgba(220, 38, 38, 0.2);
+  color: #fca5a5;
+}
+
+.status.scanning {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+/* Result card */
+.result-card {
+  background: #fff;
+  color: #1e293b;
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.age-badge {
+  display: inline-block;
+  background: #4ade80;
+  color: #14532d;
+  font-size: 1.75rem;
+  font-weight: 800;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.85rem;
+  line-height: 1.2;
+}
+
+.age-badge.age-unknown {
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+}
+
+#result-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 0.2rem;
+}
+
+.author {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 0.85rem;
+}
+
+/* Subject tags */
+.subjects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.subject-tag {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Button */
+.btn {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn:hover {
+  background: #4338ca;
+}
+
+.btn:active {
+  background: #3730a3;
+}
