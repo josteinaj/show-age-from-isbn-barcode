@@ -258,3 +258,18 @@ h1 {
   color: #94a3b8;
   margin-top: 0.2rem;
 }
+
+.scan-history-events {
+  margin-top: 0.45rem;
+  margin-left: 1.1rem;
+  list-style: disc;
+  color: #cbd5e1;
+  font-size: 0.82rem;
+}
+
+.scan-history-events li {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  margin: 0.15rem 0;
+}

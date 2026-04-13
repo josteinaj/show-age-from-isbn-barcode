@@ -1,8 +1,8 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_COMMIT = '9ab7a2d';
-const BUILD_TIME = '13. april 2026 22:25';
+const BUILD_COMMIT = '08eb637';
+const BUILD_TIME = '13. april 2026 22:40';
 const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
@@ -33,40 +33,258 @@ function isbn10ToIsbn13(isbn10) {
 
 // ── API-kall ───────────────────────────────────────────────────────────────────
 
+const BOKELSKERE_SEARCH_BASE = 'https://bokelskere.no/finn/';
+const DEICHMAN_SEARCH_BASE = 'https://deichman.no/sok/';
+
 let lastSruUrl = '';
 let scanHistory = [];
 
-async function fetchXml(isbn) {
-  const sruUrl = `${SRU_BASE}?operation=searchRetrieve&query=dc.identifier=${encodeURIComponent(isbn)}&recordSchema=marc21`;
-  const url = CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/?url=${encodeURIComponent(sruUrl)}` : sruUrl;
-  lastSruUrl = sruUrl;
+function buildSruUrl(isbn) {
+  return `${SRU_BASE}?operation=searchRetrieve&query=dc.identifier=${encodeURIComponent(isbn)}&recordSchema=marc21`;
+}
 
-  const res = await fetch(url);
+function buildProxiedUrl(targetUrl) {
+  return CORS_PROXY_BASE ? `${CORS_PROXY_BASE}/?url=${encodeURIComponent(targetUrl)}` : targetUrl;
+}
+
+async function fetchTextUrl(targetUrl) {
+  const res = await fetch(buildProxiedUrl(targetUrl));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 }
 
-/**
- * Slå opp ISBN. Prøver opprinnelig ISBN, og hvis ingen treff og det er
- * ISBN-10, konverterer til ISBN-13 og prøver igjen.
- */
+async function fetchXml(isbn) {
+  const sruUrl = buildSruUrl(isbn);
+  lastSruUrl = sruUrl;
+  return fetchTextUrl(sruUrl);
+}
+
+function extractBookPageUrlsFromDoc(doc, baseUrl) {
+  const urls = Array.from(doc.querySelectorAll('a[href*="/bok/"]'))
+    .map(a => a.getAttribute('href'))
+    .filter(Boolean)
+    .map(href => new URL(href, baseUrl).toString())
+    .filter(url => /\/bok\/[^/]+\/\d+\/?$/.test(url));
+
+  return [...new Set(urls)];
+}
+
+function extractTitleFromBokelskereDoc(doc) {
+  const h1 = doc.querySelector('h1');
+  if (!h1) return '';
+  return h1.textContent.replace(/\s+/g, ' ').trim();
+}
+
+function extractIsbnCandidatesFromText(text) {
+  const matches = text.match(/\b(?:97[89][\s-]?)?[0-9][0-9\s-]{8,}[0-9Xx]\b/g) || [];
+  const isbns = new Set();
+
+  for (const match of matches) {
+    const cleaned = cleanIsbn(match);
+    if (cleaned.length === 10 || cleaned.length === 13) {
+      isbns.add(cleaned);
+      if (cleaned.length === 10) {
+        const as13 = isbn10ToIsbn13(cleaned);
+        if (as13) isbns.add(as13);
+      }
+    }
+  }
+
+  return [...isbns];
+}
+
+async function fetchDeichmanSearchData(searchTitle) {
+  if (!searchTitle) return null;
+
+  const searchUrl = `${DEICHMAN_SEARCH_BASE}${encodeURIComponent(searchTitle)}`;
+
+  try {
+    const html = await fetchTextUrl(searchUrl);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const resultLinks = Array.from(doc.querySelectorAll('main a[href*="/utgivelse/"], main a[href*="/verk/"], main a[href*="/title/"]'));
+    const uniqueHrefs = new Set(resultLinks.map(a => a.getAttribute('href')).filter(Boolean));
+    const firstTitle = resultLinks[0] ? resultLinks[0].textContent.replace(/\s+/g, ' ').trim() : '';
+
+    return {
+      searchUrl,
+      resultCount: uniqueHrefs.size,
+      firstTitle,
+    };
+  } catch (err) {
+    console.warn('Deichman fallback feilet:', err);
+    return {
+      searchUrl,
+      resultCount: 0,
+      firstTitle: '',
+    };
+  }
+}
+
+async function fetchBokelskereData(isbn) {
+  const searchUrl = `${BOKELSKERE_SEARCH_BASE}?finn=${encodeURIComponent(isbn)}`;
+  const searchHtml = await fetchTextUrl(searchUrl);
+  const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
+
+  const resultUrls = extractBookPageUrlsFromDoc(searchDoc, searchUrl);
+  if (resultUrls.length === 0) {
+    return {
+      searchUrl,
+      resultCount: 0,
+      title: '',
+      editionCount: 0,
+      isbnCandidates: [isbn],
+    };
+  }
+
+  const primaryUrl = resultUrls[0];
+  const primaryHtml = await fetchTextUrl(primaryUrl);
+  const primaryDoc = new DOMParser().parseFromString(primaryHtml, 'text/html');
+
+  const primaryTitle = extractTitleFromBokelskereDoc(primaryDoc);
+  const slugMatch = primaryUrl.match(/\/bok\/([^/]+)\//);
+  const slug = slugMatch ? slugMatch[1] : '';
+
+  const editionUrls = extractBookPageUrlsFromDoc(primaryDoc, primaryUrl)
+    .filter(url => url !== primaryUrl && (!slug || url.includes(`/bok/${slug}/`)));
+
+  const allBookUrls = [...new Set([primaryUrl, ...editionUrls])];
+  const isbnCandidates = new Set([isbn]);
+
+  for (const bookUrl of allBookUrls) {
+    const html = bookUrl === primaryUrl ? primaryHtml : await fetchTextUrl(bookUrl);
+    for (const candidate of extractIsbnCandidatesFromText(html)) {
+      isbnCandidates.add(candidate);
+    }
+  }
+
+  return {
+    searchUrl,
+    resultCount: resultUrls.length,
+    title: primaryTitle,
+    editionCount: editionUrls.length,
+    isbnCandidates: [...isbnCandidates],
+  };
+}
+
+function buildFallbackBookFromTitle(title, deichmanSearchUrl, deichmanFirstTitle) {
+  const subjects = ['Funnet i Bokelskere.no (ikke i NB SRU).'];
+  if (deichmanFirstTitle) {
+    subjects.push(`Første treff i Deichman: ${deichmanFirstTitle}`);
+  }
+  if (deichmanSearchUrl) {
+    subjects.push(`Deichman-søk: ${deichmanSearchUrl}`);
+  }
+
+  return {
+    title: title || '(tittel funnet i Bokelskere.no)',
+    author: '',
+    ageGroups: [],
+    subjects,
+  };
+}
+
 async function lookupBook(rawIsbn) {
   const isbn = cleanIsbn(rawIsbn);
+  const triedIsbns = new Set();
+  const events = [];
 
-  let xml = await fetchXml(isbn);
-  let book = parseMarc(xml);
-  if (book) return { book, isbn, sruUrl: lastSruUrl };
+  async function trySruLookup(isbnCandidate, logMissEvent = false) {
+    if (!isbnCandidate || !(isbnCandidate.length === 10 || isbnCandidate.length === 13)) {
+      return null;
+    }
+
+    if (triedIsbns.has(isbnCandidate)) {
+      return null;
+    }
+    triedIsbns.add(isbnCandidate);
+
+    const xml = await fetchXml(isbnCandidate);
+    const book = parseMarc(xml);
+
+    if (book) {
+      return {
+        book,
+        isbn: isbnCandidate,
+        sruUrl: lastSruUrl,
+        events,
+        source: 'sru',
+      };
+    }
+
+    if (logMissEvent) {
+      events.push(`${isbnCandidate} - Ikke funnet`);
+    }
+
+    return null;
+  }
+
+  let result = await trySruLookup(isbn, false);
+  if (result) return result;
 
   if (isbn.length === 10) {
     const isbn13 = isbn10ToIsbn13(isbn);
     if (isbn13) {
-      xml = await fetchXml(isbn13);
-      book = parseMarc(xml);
-      if (book) return { book, isbn: isbn13, sruUrl: lastSruUrl };
+      result = await trySruLookup(isbn13, false);
+      if (result) return result;
     }
   }
 
-  return { book: null, isbn, sruUrl: lastSruUrl };
+  let bokelskereData = null;
+  try {
+    bokelskereData = await fetchBokelskereData(isbn);
+    events.push(`Søker på bokelskere.no: ${bokelskereData.resultCount} treff`);
+  } catch (err) {
+    events.push('Søker på bokelskere.no: feil');
+    console.warn('Bokelskere fallback feilet:', err);
+  }
+
+  if (bokelskereData && bokelskereData.resultCount > 0) {
+    events.push(`Fant ${bokelskereData.editionCount} andre utgaver med andre ISBN`);
+
+    const candidateIsbns = bokelskereData.isbnCandidates
+      .filter(candidate => !triedIsbns.has(candidate));
+
+    for (const candidate of candidateIsbns) {
+      try {
+        result = await trySruLookup(candidate, true);
+        if (result) {
+          return {
+            ...result,
+            source: 'bokelskere-isbn-fallback',
+          };
+        }
+      } catch (err) {
+        events.push(`${candidate} - Feil ved oppslag`);
+        console.warn(`SRU-oppslag feilet for kandidat ${candidate}:`, err);
+      }
+    }
+
+    const deichman = await fetchDeichmanSearchData(bokelskereData.title);
+    if (deichman) {
+      events.push(`Søker etter "${bokelskereData.title}" på deichman.no: ${deichman.resultCount} treff`);
+    }
+
+    return {
+      book: buildFallbackBookFromTitle(
+        bokelskereData.title,
+        deichman ? deichman.searchUrl : '',
+        deichman ? deichman.firstTitle : ''
+      ),
+      isbn,
+      sruUrl: lastSruUrl || buildSruUrl(isbn),
+      events,
+      source: 'bokelskere-title-fallback',
+    };
+  }
+
+  return {
+    book: null,
+    isbn,
+    sruUrl: lastSruUrl || buildSruUrl(isbn),
+    events,
+    source: 'none',
+  };
 }
 
 // ── MARC 21 XML-parser ─────────────────────────────────────────────────────────
@@ -143,11 +361,16 @@ function renderScanHistory() {
   scanHistoryListEl.innerHTML = '';
   scanHistory.forEach(scan => {
     const li = document.createElement('li');
+    const eventsHtml = (scan.events && scan.events.length > 0)
+      ? `<ul class="scan-history-events">${scan.events.map(ev => `<li>${escapeHtml(ev)}</li>`).join('')}</ul>`
+      : '';
+
     li.innerHTML = `
       <div class="scan-history-isbn">
         <a href="#" data-sru-url="${escapeHtml(scan.sruUrl)}" target="_blank">${escapeHtml(scan.isbn)}</a>
       </div>
       <div class="scan-history-status">${escapeHtml(scan.status)}</div>
+      ${eventsHtml}
     `;
     scanHistoryListEl.appendChild(li);
   });
@@ -164,8 +387,8 @@ function renderScanHistory() {
   });
 }
 
-function addToScanHistory(isbn, sruUrl, status) {
-  scanHistory.unshift({ isbn, sruUrl, status, time: new Date().toLocaleTimeString('nb-NO') });
+function addToScanHistory(isbn, sruUrl, status, events = []) {
+  scanHistory.unshift({ isbn, sruUrl, status, events, time: new Date().toLocaleTimeString('nb-NO') });
   // Behold maksimalt 20 oppføringer i historikken
   if (scanHistory.length > 20) scanHistory.pop();
   renderScanHistory();
@@ -454,19 +677,22 @@ async function onDetected(code) {
 
   try {
     const result = await lookupBook(normalizedCode);
-    const { book, sruUrl } = result;
+    const { book, sruUrl, events, source } = result;
     
     if (book) {
-      addToScanHistory(normalizedCode, sruUrl, 'Funnet');
+      const status = source === 'bokelskere-title-fallback'
+        ? 'Funnet via fallback'
+        : 'Funnet';
+      addToScanHistory(normalizedCode, sruUrl, status, events || []);
       statusEl.hidden = true;
       showResult(book);
     } else {
-      addToScanHistory(normalizedCode, sruUrl, 'Ikke funnet');
+      addToScanHistory(normalizedCode, sruUrl, 'Ikke funnet', events || []);
       setStatus(`Ingen oppføring funnet for ISBN: ${normalizedCode}`, 'error');
       scheduleResume(4000);
     }
   } catch (err) {
-    addToScanHistory(normalizedCode, lastSruUrl, 'Feil ved oppslag');
+    addToScanHistory(normalizedCode, lastSruUrl || buildSruUrl(normalizedCode), 'Feil ved oppslag');
     console.error('Oppslagsfeil:', err);
     const msg = CORS_PROXY_BASE
       ? 'Feil ved oppslag. Sjekk internettilkoblingen.'
