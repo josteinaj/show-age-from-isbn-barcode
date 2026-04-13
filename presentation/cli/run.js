@@ -3,6 +3,7 @@ import { makeNodeFetchText } from '../../infrastructure/http/nodeFetch.js';
 import { parseXml, parseHtml, findAll, getTextContent } from '../../infrastructure/html/xmldomDom.js';
 import { cleanIsbn } from '../../infrastructure/isbn/isbn.js';
 import { buildSruUrl } from '../../infrastructure/nb_sru/sruClient.js';
+import { summarizeAgeGroups } from '../../application/formatters/ageSummary.js';
 
 function formatEventLink(text, url) {
   return `${text}  →  ${url}`;
@@ -35,13 +36,14 @@ export async function runCliLookup(rawIsbn) {
   console.log(`SRU: ${sruUrl}`);
 
   if (book) {
+    const age = summarizeAgeGroups(book.ageGroups);
     const status = (source === 'bokelskere-title-fallback' || source === 'nb-title-fallback')
-      ? (book.ageGroups.length > 0 ? 'Funnet via fallback' : 'Funnet via fallback (ingen alder)')
+      ? (age.hasAge ? 'Funnet via fallback' : 'Funnet via fallback (ingen alder)')
       : 'Funnet';
     console.log(`Status: ${status}`);
     if (book.title)               console.log(`Tittel: ${book.title}`);
     if (book.author)              console.log(`Forfatter: ${book.author}`);
-    if (book.ageGroups.length > 0) console.log(`Anbefalt alder: ${book.ageGroups.join(' · ')}`);
+    if (age.hasAge)               console.log(`Anbefalt alder: ${age.averageAge} år (${age.mergedRangeLabel})`);
     if (book.subjects.length > 0)  console.log(`Emner: ${book.subjects.join(', ')}`);
   } else {
     console.log('Status: Ikke funnet');

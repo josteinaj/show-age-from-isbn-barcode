@@ -3,6 +3,7 @@ import { makeBrowserFetchText } from '../../infrastructure/http/browserFetch.js'
 import { parseXml, parseHtml, findAll, getTextContent } from '../../infrastructure/html/browserDom.js';
 import { cleanIsbn, normalizeScannedCode } from '../../infrastructure/isbn/isbn.js';
 import { buildSruUrl } from '../../infrastructure/nb_sru/sruClient.js';
+import { summarizeAgeGroups } from '../../application/formatters/ageSummary.js';
 
 // ── Konfigurasjon ──────────────────────────────────────────────────────────────
 
@@ -123,9 +124,10 @@ function renderBuildInfo() {
 
 function showResult(book) {
   resultEl.hidden = false;
+  const age = summarizeAgeGroups(book.ageGroups);
 
-  if (book.ageGroups.length > 0) {
-    ageBadgeEl.textContent = book.ageGroups.join(' · ');
+  if (age.hasAge) {
+    ageBadgeEl.innerHTML = `<span class="age-badge-average">${age.averageAge} år</span><span class="age-badge-range">${age.mergedRangeLabel}</span>`;
     ageBadgeEl.className = 'age-badge';
   } else {
     ageBadgeEl.textContent = 'Ingen aldersanbefaling';
