@@ -32,25 +32,27 @@ export async function runCliLookup(rawIsbn) {
   const { book, sruUrl, events, source } = result;
   const isbn = cleanIsbn(rawIsbn);
 
-  console.log(`ISBN: ${isbn}`);
-  console.log(`SRU: ${sruUrl}`);
+  if (events.length > 0) {
+    console.log('Hendelser:');
+    for (const ev of events) console.log(`  - ${ev}`);
+    console.log('');
+  }
 
   if (book) {
     const age = summarizeAgeGroups(book.ageGroups);
     const status = (source === 'bokelskere-title-fallback' || source === 'nb-title-fallback')
       ? (age.hasAge ? 'Funnet via fallback' : 'Funnet via fallback (ingen alder)')
       : 'Funnet';
+    console.log(`ISBN: ${isbn}`);
+    console.log(`SRU: ${sruUrl}`);
     console.log(`Status: ${status}`);
     if (book.title)               console.log(`Tittel: ${book.title}`);
     if (book.author)              console.log(`Forfatter: ${book.author}`);
     if (age.hasAge)               console.log(`Anbefalt alder: ${age.averageAge} år (${age.mergedRangeLabel})`);
     if (book.subjects.length > 0)  console.log(`Emner: ${book.subjects.join(', ')}`);
   } else {
+    console.log(`ISBN: ${isbn}`);
+    console.log(`SRU: ${sruUrl}`);
     console.log('Status: Ikke funnet');
-  }
-
-  if (events.length > 0) {
-    console.log('\nHendelser:');
-    for (const ev of events) console.log(`  - ${ev}`);
   }
 }
