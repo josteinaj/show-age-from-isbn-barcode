@@ -1,8 +1,8 @@
 // CORS-proxy URL comes from config.js. Keep empty string for local-only testing.
 const CORS_PROXY_BASE = (window.APP_CONFIG && window.APP_CONFIG.corsProxyBase) || '';
 const CAMERA_TEST_MODE = false;
-const BUILD_COMMIT = 'ea9dcc3';
-const BUILD_TIME = '13. april 2026 22:55';
+const BUILD_COMMIT = '5379661';
+const BUILD_TIME = '13. april 2026 22:59';
 const GITHUB_REPO = 'josteinaj/show-age-from-isbn-barcode';
 
 // ── Nasjonalbibliotekets SRU-endpoint ──────────────────────────────────────────
@@ -204,7 +204,7 @@ function buildFallbackBookFromTitle(title, deichmanSearchUrl, deichmanFirstTitle
   };
 }
 
-async function lookupBook(rawIsbn) {
+async function lookupBook(rawIsbn, onProgress = () => {}) {
   const isbn = cleanIsbn(rawIsbn);
   const triedIsbns = new Set();
   const events = [];
@@ -219,6 +219,7 @@ async function lookupBook(rawIsbn) {
     }
     triedIsbns.add(isbnCandidate);
 
+    onProgress(`Søker på NB SRU etter ISBN ${isbnCandidate}…`);
     const xml = await fetchXml(isbnCandidate);
     const book = parseMarc(xml);
 
@@ -252,6 +253,7 @@ async function lookupBook(rawIsbn) {
 
   let bokelskereData = null;
   try {
+    onProgress('Søker på Bokelskere.no…');
     bokelskereData = await fetchBokelskereData(isbn);
     const linkHtml = createEventLink('Søker på bokelskere.no', bokelskereData.searchUrl);
     events.push(`${linkHtml}: ${bokelskereData.resultCount} treff`);
@@ -263,6 +265,7 @@ async function lookupBook(rawIsbn) {
   if (bokelskereData && bokelskereData.resultCount > 0) {
     if (bokelskereData.newIsbnCount > 0) {
       events.push(`Fant ${bokelskereData.newIsbnCount} andre utgaver med andre ISBN`);
+      onProgress(`Søker på andre ISBN-utgaver fra Bokelskere…`);
     }
 
     const candidateIsbns = bokelskereData.isbnCandidates
@@ -283,6 +286,7 @@ async function lookupBook(rawIsbn) {
       }
     }
 
+    onProgress('Søker på Deichman…');
     const deichman = await fetchDeichmanSearchData(bokelskereData.title);
     if (deichman) {
       const linkHtml = createEventLink('Søker på deichman.no', deichman.searchUrl);
@@ -714,7 +718,9 @@ async function onDetected(code) {
   setStatus('Slår opp bok…');
 
   try {
-    const result = await lookupBook(normalizedCode);
+    const result = await lookupBook(normalizedCode, (msg) => {
+      setStatus(msg);
+    });
     const { book, sruUrl, events, source } = result;
     
     if (book) {
