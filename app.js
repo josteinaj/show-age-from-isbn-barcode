@@ -203,15 +203,6 @@ function formatCameraError(err) {
   return 'Kunne ikke starte kamera. Gi appen kameratilgang og prøv igjen.';
 }
 
-async function warmupCameraPermission() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    throw new Error('UNSUPPORTED_MEDIA_DEVICES');
-  }
-
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  stream.getTracks().forEach(track => track.stop());
-}
-
 async function startScannerWithFallback(scannerConfig) {
   try {
     await scanner.start(
@@ -281,15 +272,15 @@ async function initScanner() {
     },
     supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
     formatsToSupport: formats,
+    // iOS Safari can be unstable with experimental barcode detector path.
     experimentalFeatures: {
-      useBarCodeDetectorIfSupported: true,
+      useBarCodeDetectorIfSupported: false,
     },
   };
 
   setStatus('Starter kamera…');
 
   try {
-    await warmupCameraPermission();
     await startScannerWithFallback(scannerConfig);
     startContainerEl.hidden = true;
     setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');

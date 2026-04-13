@@ -65,9 +65,9 @@ h1 {
   transform: translateZ(0);
 }
 
-/* On some iOS setups canvas can appear as a white overlay over video. */
+/* Some iOS runs render through canvas after startup, so keep it visible. */
 #reader canvas {
-  display: none !important;
+  display: block !important;
 }
 
 /* Status */
