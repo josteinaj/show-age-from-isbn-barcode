@@ -124,6 +124,9 @@ const ageBadgeEl = document.getElementById('result-age');
 const titleEl = document.getElementById('result-title');
 const authorEl = document.getElementById('result-author');
 const subjectsEl = document.getElementById('result-subjects');
+const readerEl = document.getElementById('reader');
+const startContainerEl = document.getElementById('start-container');
+const startBtnEl = document.getElementById('start-btn');
 
 function setStatus(msg, type = '') {
   statusEl.textContent = msg;
@@ -172,6 +175,71 @@ let scanner = null;
 let paused = false;
 let lastCode = '';
 let lastCodeTime = 0;
+let isStarting = false;
+
+function isFirefoxOniPhone() {
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod/i.test(ua) && /FxiOS/i.test(ua);
+}
+
+function formatCameraError(err) {
+  const name = err && err.name ? err.name : '';
+
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Kameratilgang ble blokkert. Tillat kamera i nettleserinnstillinger og prøv igjen.';
+  }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'Fant ikke noe kamera på enheten.';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'Kameraet er opptatt av en annen app. Lukk andre apper som bruker kamera og prøv igjen.';
+  }
+  if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+    return 'Kunne ikke velge ønsket kamera. Prøver alternativ kamera.';
+  }
+  if (isFirefoxOniPhone()) {
+    return 'Firefox på iPhone kan ha problemer med kameratilgang. Prøv å åpne siden i Safari.';
+  }
+  return 'Kunne ikke starte kamera. Gi appen kameratilgang og prøv igjen.';
+}
+
+async function warmupCameraPermission() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error('UNSUPPORTED_MEDIA_DEVICES');
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  stream.getTracks().forEach(track => track.stop());
+}
+
+async function startScannerWithFallback(scannerConfig) {
+  try {
+    await scanner.start(
+      { facingMode: { ideal: 'environment' } },
+      scannerConfig,
+      onDetected,
+      () => { /* ignorerer kontinuerlige scannerrors */ }
+    );
+    return;
+  } catch (firstErr) {
+    console.warn('Primær kamerastart feilet, prøver fallback:', firstErr);
+  }
+
+  const cameras = await Html5Qrcode.getCameras();
+  if (!cameras || cameras.length === 0) {
+    throw new Error('NO_CAMERAS_FOUND');
+  }
+
+  const backCamera = cameras.find(c => /back|rear|environment|traseira|arriere|hinten/i.test(c.label))
+    || cameras[cameras.length - 1];
+
+  await scanner.start(
+    backCamera.id,
+    scannerConfig,
+    onDetected,
+    () => { /* ignorerer kontinuerlige scannerrors */ }
+  );
+}
 
 function normalizeScannedCode(raw) {
   const cleaned = (raw || '').replace(/[^0-9Xx]/g, '');
@@ -185,8 +253,12 @@ function normalizeScannedCode(raw) {
   return cleaned;
 }
 
-function initScanner() {
-  document.getElementById('reader').hidden = false;
+async function initScanner() {
+  if (isStarting) return;
+  isStarting = true;
+
+  readerEl.hidden = false;
+  startBtnEl.disabled = true;
   scanner = new Html5Qrcode('reader');
 
   const formats = [
@@ -214,23 +286,20 @@ function initScanner() {
 
   setStatus('Starter kamera…');
 
-  scanner
-    .start(
-      { facingMode: 'environment' },
-      scannerConfig,
-      onDetected,
-      () => { /* ignorerer kontinuerlige scannerrors */ }
-    )
-    .then(() => {
-      setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
-    })
-    .catch(err => {
-      console.error('Kamerafeil:', err);
-      setStatus(
-        'Kunne ikke starte kamera. Gi appen kameratilgang og last inn siden på nytt.',
-        'error'
-      );
-    });
+  try {
+    await warmupCameraPermission();
+    await startScannerWithFallback(scannerConfig);
+    startContainerEl.hidden = true;
+    setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
+  } catch (err) {
+    console.error('Kamerafeil:', err);
+    readerEl.hidden = true;
+    startContainerEl.hidden = false;
+    setStatus(formatCameraError(err), 'error');
+  } finally {
+    isStarting = false;
+    startBtnEl.disabled = false;
+  }
 }
 
 async function onDetected(code) {
@@ -287,11 +356,7 @@ function resume() {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('scan-again-btn').addEventListener('click', resume);
-  const startContainer = document.getElementById('start-container');
-  const startBtn = document.getElementById('start-btn');
-
-  startBtn.addEventListener('click', () => {
-    startContainer.hidden = true;
+  startBtnEl.addEventListener('click', () => {
     initScanner();
   });
 });
