@@ -388,7 +388,7 @@ function resume() {
   if (isCameraActive()) {
     setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
   } else {
-    setStatus('Skriv ISBN i feltet eller start kameraet.');
+    setStatus('Skriv ISBN i feltet, eller start kameraet.');
   }
 }
 
@@ -405,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
   manualLookupFormEl.addEventListener('submit', (e) => {
     e.preventDefault();
     if (lookupInProgress) return;
-    if (paused) resume();
 
     const normalizedCode = normalizeScannedCode(manualIsbnInputEl.value.trim());
     if (!(normalizedCode.length === 10 || normalizedCode.length === 13)) {
@@ -413,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (paused) resume();
     onDetected(normalizedCode);
   });
 });
