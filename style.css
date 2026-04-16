@@ -224,6 +224,51 @@ h1 {
   border-radius: 50px;
 }
 
+/* Manuell ISBN-oppslag */
+.manual-lookup-form {
+  margin-top: -1rem;
+  margin-bottom: 1rem;
+}
+
+.manual-lookup-label {
+  display: block;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-bottom: 0.4rem;
+}
+
+.manual-lookup-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.manual-lookup-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #0b1220;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+}
+
+.manual-lookup-input::placeholder {
+  color: #64748b;
+}
+
+.manual-lookup-input:focus {
+  outline: 2px solid #6366f1;
+  outline-offset: 1px;
+}
+
+.manual-lookup-btn {
+  width: auto;
+  white-space: nowrap;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
 /* Scan history section */
 #scan-history-section {
   margin-top: 2rem;
