@@ -388,7 +388,7 @@ function resume() {
   if (isCameraActive()) {
     setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
   } else {
-    setStatus('Skriv ISBN i feltet eller start kamera.');
+    setStatus('Skriv ISBN i feltet eller start kameraet.');
   }
 }
 
@@ -413,7 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    manualIsbnInputEl.value = normalizedCode;
     onDetected(normalizedCode);
   });
 });
