@@ -86,6 +86,33 @@ h1 {
   transform: translateZ(0);
 }
 
+#reader.zoom-2x video,
+#reader.zoom-2x canvas {
+  transform: scale(2);
+  transform-origin: center center;
+}
+
+.scanner-controls {
+  margin-top: 0.5rem;
+}
+
+.scanner-control-btn {
+  width: auto;
+  margin-left: auto;
+}
+
+.btn-secondary {
+  background: #334155;
+}
+
+.btn-secondary:hover {
+  background: #475569;
+}
+
+.btn-secondary:active {
+  background: #1e293b;
+}
+
 /* Some iOS runs render through canvas after startup, so keep it visible. */
 #reader canvas {
   display: block !important;

@@ -48,6 +48,8 @@ function linkifyEventText(text) {
 const statusEl = document.getElementById('status');
 const buildInfoEl = document.getElementById('build-info');
 const resultEl = document.getElementById('result');
+const scannerControlsEl = document.getElementById('scanner-controls');
+const zoomBtnEl = document.getElementById('zoom-btn');
 const ageBadgeEl = document.getElementById('result-age');
 const titleEl = document.getElementById('result-title');
 const authorEl = document.getElementById('result-author');
@@ -74,6 +76,7 @@ let detectorTimer = null;
 let zxingReader = null;
 let zxingControls = null;
 let lookupInProgress = false;
+let zoom2xEnabled = false;
 
 // ── Skannerhistorikk ───────────────────────────────────────────────────────────
 
@@ -151,6 +154,23 @@ function showResult(book) {
 
 function hideResult() {
   resultEl.hidden = true;
+}
+
+function applyReaderZoom() {
+  readerEl.classList.toggle('zoom-2x', zoom2xEnabled);
+  if (zoomBtnEl) {
+    zoomBtnEl.textContent = zoom2xEnabled ? '2x zoom: på' : '2x zoom: av';
+    zoomBtnEl.setAttribute('aria-pressed', zoom2xEnabled ? 'true' : 'false');
+  }
+}
+
+function setZoom2x(enabled) {
+  zoom2xEnabled = Boolean(enabled);
+  applyReaderZoom();
+}
+
+function toggleZoom2x() {
+  setZoom2x(!zoom2xEnabled);
 }
 
 // ── Kamera ─────────────────────────────────────────────────────────────────────
@@ -293,6 +313,8 @@ async function initScanner() {
     } else {
       await startZxingFallbackDetection();
     }
+    setZoom2x(false);
+    if (scannerControlsEl) scannerControlsEl.hidden = false;
     startContainerEl.hidden = true;
     if (CAMERA_TEST_MODE) {
       setStatus('Kamera aktivt (testmodus uten strekkodeleser)', 'scanning');
@@ -303,6 +325,7 @@ async function initScanner() {
   } catch (err) {
     console.error('Kamerafeil:', err);
     readerEl.hidden = true;
+    if (scannerControlsEl) scannerControlsEl.hidden = true;
     startContainerEl.hidden = false;
     setStatus(formatCameraError(err), 'error');
   } finally {
@@ -402,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (CAMERA_TEST_MODE) scanAgainBtn.hidden = true;
 
   startBtnEl.addEventListener('click', () => { initScanner(); });
+  if (zoomBtnEl) zoomBtnEl.addEventListener('click', toggleZoom2x);
   manualLookupFormEl.addEventListener('submit', (e) => {
     e.preventDefault();
     if (lookupInProgress) return;
