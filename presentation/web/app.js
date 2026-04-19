@@ -74,6 +74,7 @@ let detectorTimer = null;
 let zxingReader = null;
 let zxingControls = null;
 let lookupInProgress = false;
+let resumeTimer = null;
 
 // ── Skannerhistorikk ───────────────────────────────────────────────────────────
 
@@ -351,6 +352,7 @@ async function onDetected(code) {
       addToScanHistory(normalizedCode, sruUrl, status, events || []);
       statusEl.hidden = true;
       showResult(book);
+      scheduleResume(3000);
     } else {
       addToScanHistory(normalizedCode, sruUrl, 'Ikke funnet', events || []);
       setStatus(`Ingen oppføring funnet for ISBN: ${normalizedCode}`, 'error');
@@ -370,7 +372,11 @@ async function onDetected(code) {
 }
 
 function scheduleResume(ms) {
-  setTimeout(resume, ms);
+  if (resumeTimer) clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(() => {
+    resumeTimer = null;
+    resume();
+  }, ms);
 }
 
 function isCameraActive() {
@@ -378,6 +384,10 @@ function isCameraActive() {
 }
 
 function resume() {
+  if (resumeTimer) {
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+  }
   if (CAMERA_TEST_MODE) {
     setStatus('Kamera aktivt (testmodus uten strekkodeleser)', 'scanning');
     return;

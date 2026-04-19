@@ -83,6 +83,7 @@ Hvis alder ikke finnes vises «Ingen aldersanbefaling».
 - Native `BarcodeDetector` brukes der støtte finnes.
 - ZXing brukes som fallback på nettlesere uten native detector.
 - Debounce på skannede koder for å unngå duplikatoppslag.
+- Etter oppslag startes skanning automatisk igjen etter 3 sekunder.
 
 ## Skannelogg (session-only)
 
