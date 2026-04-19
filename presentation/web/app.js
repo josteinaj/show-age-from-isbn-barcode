@@ -158,7 +158,10 @@ function hideResult() {
 
 function applyReaderZoom() {
   readerEl.classList.toggle('zoom-2x', zoom2xEnabled);
-  if (zoomBtnEl) zoomBtnEl.textContent = zoom2xEnabled ? '2x zoom: på' : '2x zoom: av';
+  if (zoomBtnEl) {
+    zoomBtnEl.textContent = zoom2xEnabled ? '2x zoom: på' : '2x zoom: av';
+    zoomBtnEl.setAttribute('aria-pressed', zoom2xEnabled ? 'true' : 'false');
+  }
 }
 
 function setZoom2x(enabled) {
