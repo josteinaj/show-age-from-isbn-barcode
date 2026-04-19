@@ -15,6 +15,20 @@
     <div id="start-container">
       <button id="start-btn" class="btn btn-start">Start kamera</button>
     </div>
+    <form id="manual-lookup-form" class="manual-lookup-form" novalidate>
+      <label for="manual-isbn-input" class="manual-lookup-label">ISBN (manuell)</label>
+      <div class="manual-lookup-row">
+        <input
+          id="manual-isbn-input"
+          class="manual-lookup-input"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          placeholder="Skriv ISBN-10 eller ISBN-13"
+        />
+        <button type="submit" class="btn manual-lookup-btn">Slå opp</button>
+      </div>
+    </form>
     <div id="result" hidden>
       <div class="result-card">
         <div id="result-age" class="age-badge"></div>

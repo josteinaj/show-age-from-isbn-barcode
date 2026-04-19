@@ -55,6 +55,8 @@ const subjectsEl = document.getElementById('result-subjects');
 const readerEl = document.getElementById('reader');
 const startContainerEl = document.getElementById('start-container');
 const startBtnEl = document.getElementById('start-btn');
+const manualLookupFormEl = document.getElementById('manual-lookup-form');
+const manualIsbnInputEl = document.getElementById('manual-isbn-input');
 const scanHistorySectionEl = document.getElementById('scan-history-section');
 const scanHistoryListEl = document.getElementById('scan-history-list');
 
@@ -71,6 +73,7 @@ let detector = null;
 let detectorTimer = null;
 let zxingReader = null;
 let zxingControls = null;
+let lookupInProgress = false;
 
 // ── Skannerhistorikk ───────────────────────────────────────────────────────────
 
@@ -321,6 +324,7 @@ async function onDetected(code) {
   lastCode = normalizedCode;
   lastCodeTime = now;
   paused = true;
+  lookupInProgress = true;
 
   hideResult();
   setStatus('Slår opp bok…');
@@ -360,11 +364,17 @@ async function onDetected(code) {
       : 'CORS-feil: sett opp proxy.';
     setStatus(msg, 'error');
     scheduleResume(5000);
+  } finally {
+    lookupInProgress = false;
   }
 }
 
 function scheduleResume(ms) {
   setTimeout(resume, ms);
+}
+
+function isCameraActive() {
+  return Boolean(cameraStream || zxingControls);
 }
 
 function resume() {
@@ -375,7 +385,11 @@ function resume() {
   hideResult();
   lastCode = '';
   paused = false;
-  setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
+  if (isCameraActive()) {
+    setStatus('Pek kamera mot ISBN-strekkoden', 'scanning');
+  } else {
+    setStatus('Skriv ISBN i feltet, eller start kameraet.');
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
@@ -388,4 +402,17 @@ document.addEventListener('DOMContentLoaded', () => {
   if (CAMERA_TEST_MODE) scanAgainBtn.hidden = true;
 
   startBtnEl.addEventListener('click', () => { initScanner(); });
+  manualLookupFormEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (lookupInProgress) return;
+
+    const normalizedCode = normalizeScannedCode(manualIsbnInputEl.value.trim());
+    if (!(normalizedCode.length === 10 || normalizedCode.length === 13)) {
+      setStatus('Skriv inn et gyldig ISBN-10 eller ISBN-13.', 'error');
+      return;
+    }
+
+    if (paused) resume();
+    onDetected(normalizedCode);
+  });
 });
